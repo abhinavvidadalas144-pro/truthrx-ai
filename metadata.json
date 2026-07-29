@@ -1,0 +1,6 @@
+{
+  "name": "TruthRx AI",
+  "description": "Clean, modern SaaS healthcare AI platform to verify health information, claims, messages, and screenshots against trusted medical references.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
