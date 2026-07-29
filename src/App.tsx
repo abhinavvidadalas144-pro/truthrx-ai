@@ -6,6 +6,7 @@ import { UserDashboardModal } from './components/UserDashboardModal';
 import { SampleClaims } from './components/SampleClaims';
 import { Features } from './components/Features';
 import { HowItWorks } from './components/HowItWorks';
+import { HealthAssistant } from './components/HealthAssistant';
 import { FAQ } from './components/FAQ';
 import { About } from './components/About';
 import { Footer } from './components/Footer';
@@ -76,7 +77,7 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const sectionIds: NavSection[] = ['home', 'features', 'how-it-works', 'faq', 'about'];
+    const sectionIds: NavSection[] = ['home', 'health-assistant', 'features', 'how-it-works', 'faq', 'about'];
 
     const handleScroll = () => {
       if (isProgrammaticScrollRef.current) return;
@@ -152,6 +153,9 @@ export default function App() {
           onSelectClaim={(text, category) => handleOpenVerifyModal(text, category)}
         />
 
+        {/* AI Health Assistant Section */}
+        <HealthAssistant />
+
         {/* Features Section */}
         <Features />
 
@@ -161,7 +165,7 @@ export default function App() {
         />
 
         {/* FAQ Section */}
-        <FAQ />
+        <FAQ onOpenSupport={() => setIsDashboardOpen(true)} />
 
         {/* About Section */}
         <About />

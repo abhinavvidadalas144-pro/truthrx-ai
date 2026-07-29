@@ -51,6 +51,11 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenVerifyModal })
                 </button>
               </li>
               <li>
+                <button onClick={() => onNavigate('health-assistant')} className="hover:text-[#111827] dark:hover:text-white transition-colors cursor-pointer">
+                  AI Health Assistant
+                </button>
+              </li>
+              <li>
                 <button onClick={() => onNavigate('features')} className="hover:text-[#111827] dark:hover:text-white transition-colors cursor-pointer">
                   Features
                 </button>

@@ -1,4 +1,28 @@
-export type NavSection = 'home' | 'features' | 'how-it-works' | 'faq' | 'about';
+export type NavSection = 'home' | 'health-assistant' | 'features' | 'how-it-works' | 'faq' | 'about';
+
+export interface ChatMessage {
+  id: string;
+  sender: 'user' | 'assistant';
+  text: string;
+  timestamp: string;
+  isEmergency?: boolean;
+  possibleConditions?: Array<{
+    name: string;
+    likelihood: 'High' | 'Moderate' | 'Low';
+    percentage?: number;
+    reasoning: string;
+  }>;
+  recommendedSpecialist?: string;
+  followUpQuestions?: string[];
+  suggestedActions?: string[];
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+}
 
 export type AuthView = 'login' | 'register' | 'forgot-password' | 'verification' | 'account-created';
 
@@ -50,5 +74,5 @@ export interface FAQItem {
   id: string;
   question: string;
   answer: string;
-  category: 'General' | 'Accuracy' | 'Privacy' | 'Sources';
+  category: string;
 }
