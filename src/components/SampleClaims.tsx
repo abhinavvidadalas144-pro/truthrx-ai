@@ -89,20 +89,20 @@ export const SampleClaims: React.FC<SampleClaimsProps> = ({ onSelectClaim }) => 
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 0.7, ease: easeCurve }}
-      className="py-16 bg-[#F8FAFC] border-t border-[#E5E7EB]"
+      className="py-16 bg-[#F8FAFC] dark:bg-[#0f172a] border-t border-[#E5E7EB] dark:border-gray-800/80 transition-colors duration-300"
       id="sample-claims-section"
     >
-      <div className="max-w-[1360px] mx-auto px-6 md:px-12 lg:px-[56px]">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 md:px-8 lg:px-10">
         
         {/* Section Header */}
         <div className="max-w-2xl mb-10">
-          <p className="text-[13px] font-medium text-[#2563EB] uppercase tracking-wider mb-2">
+          <p className="text-[13px] font-medium text-[#2563EB] dark:text-blue-400 uppercase tracking-wider mb-2">
             Verification Library
           </p>
-          <h2 className="text-[28px] font-semibold tracking-tight text-[#111827] mb-3">
+          <h2 className="text-[28px] font-semibold tracking-tight text-[#111827] dark:text-white mb-3">
             Recent Medical Claim Analyses
           </h2>
-          <p className="text-[15px] font-normal text-[#6B7280] leading-relaxed">
+          <p className="text-[15px] font-normal text-[#6B7280] dark:text-gray-400 leading-relaxed">
             Select an archived claim below to examine clinical literature sources, physiological mechanisms, and WHO reference citations.
           </p>
         </div>
@@ -124,7 +124,7 @@ export const SampleClaims: React.FC<SampleClaimsProps> = ({ onSelectClaim }) => 
                 <div>
                   {/* Category & Verdict Header */}
                   <div className="flex items-center justify-between gap-3 mb-4">
-                    <div className="flex items-center gap-2 text-[12px] font-medium text-[#6B7280] bg-[#F8FAFC] px-2.5 py-1 rounded-md border border-[#E5E7EB]">
+                    <div className="flex items-center gap-2 text-[12px] font-medium text-[#6B7280] dark:text-gray-300 bg-[#F8FAFC] dark:bg-gray-800/80 px-2.5 py-1 rounded-md border border-[#E5E7EB] dark:border-gray-700">
                       {getCategoryIcon(item.category)}
                       <span className="capitalize">{item.category} Input</span>
                     </div>
@@ -135,21 +135,21 @@ export const SampleClaims: React.FC<SampleClaimsProps> = ({ onSelectClaim }) => 
                     </div>
                   </div>
 
-                  <h3 className="text-[18px] font-semibold text-[#111827] group-hover:text-[#2563EB] transition-colors duration-200 mb-2">
+                  <h3 className="text-[18px] font-semibold text-[#111827] dark:text-white group-hover:text-[#2563EB] dark:group-hover:text-blue-400 transition-colors duration-200 mb-2">
                     {item.title}
                   </h3>
 
-                  <p className="text-[13px] text-[#4B5563] bg-[#F8FAFC] p-3 rounded-lg border border-[#E5E7EB] mb-4">
+                  <p className="text-[13px] text-[#4B5563] dark:text-gray-300 bg-[#F8FAFC] dark:bg-gray-800/60 p-3 rounded-lg border border-[#E5E7EB] dark:border-gray-700/80 mb-4">
                     "{item.claim}"
                   </p>
 
-                  <p className="text-[14px] text-[#6B7280] leading-relaxed">
+                  <p className="text-[14px] text-[#6B7280] dark:text-gray-400 leading-relaxed">
                     {item.previewSnippet}
                   </p>
                 </div>
 
                 {/* Bottom Action Line */}
-                <div className="pt-4 mt-6 border-t border-[#E5E7EB] flex items-center justify-between text-[13px] font-medium text-[#2563EB]">
+                <div className="pt-4 mt-6 border-t border-[#E5E7EB] dark:border-gray-800 flex items-center justify-between text-[13px] font-medium text-[#2563EB] dark:text-blue-400">
                   <span>Review Clinical Evidence</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform duration-200 ease-out" />
                 </div>

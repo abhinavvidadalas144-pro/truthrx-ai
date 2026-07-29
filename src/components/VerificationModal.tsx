@@ -42,6 +42,36 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageMimeType, setImageMimeType] = useState<string>('image/png');
+
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [audioBase64, setAudioBase64] = useState<string | null>(null);
+  const [audioMimeType, setAudioMimeType] = useState<string>('audio/webm');
+  const [micError, setMicError] = useState<string | null>(null);
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const audioChunksRef = React.useRef<Blob[]>([]);
+  const timerRef = React.useRef<any>(null);
+
+  const saveToHistory = (data: VerificationResult) => {
+    try {
+      const saved = localStorage.getItem('truthrx_verifications_history');
+      const existing = saved ? JSON.parse(saved) : [];
+      const historyItem = {
+        ...data,
+        id: `ver-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        isFavorite: false,
+      };
+      const updated = [historyItem, ...existing.filter((item: any) => item.claimText !== data.claimText)];
+      localStorage.setItem('truthrx_verifications_history', JSON.stringify(updated.slice(0, 50)));
+      window.dispatchEvent(new Event('truthrx_history_updated'));
+    } catch (err) {
+      console.error('Failed to save verification to history:', err);
+    }
+  };
 
   const samplePresets: { label: string; text: string; category: ClaimCategory }[] = [
     {
@@ -64,6 +94,9 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
   const handleSelectPreset = (presetText: string, category: ClaimCategory) => {
     setActiveCategory(category);
     setInputText(presetText);
+    setImageBase64(null);
+    setAudioBase64(null);
+    setSelectedFileName(null);
     setResult(null);
   };
 
@@ -71,12 +104,91 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFileName(file.name);
-      setInputText(`[Screenshot Analysis from ${file.name}]: "Natural home remedy forward claiming that drinking unpasteurized raw juice cures kidney stones in 48 hours without surgery."`);
+      setImageMimeType(file.type || 'image/png');
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const b64 = event.target?.result as string;
+        setImageBase64(b64);
+        if (!inputText) {
+          setInputText(`[Screenshot attached: ${file.name}] Please perform OCR and verify all health claims in this image.`);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAudioFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFileName(file.name);
+      setAudioMimeType(file.type || 'audio/webm');
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const b64 = event.target?.result as string;
+        setAudioBase64(b64);
+        if (!inputText) {
+          setInputText(`[Voice Note attached: ${file.name}] Please transcribe this voice audio note and verify its health claims.`);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const startVoiceRecording = async () => {
+    setMicError(null);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setMicError('Audio recording is not supported in this browser. Please upload an audio file instead.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const b64 = reader.result as string;
+          setAudioBase64(b64);
+          setAudioMimeType('audio/webm');
+          setSelectedFileName('Live Voice Recording.webm');
+          setInputText('[Live Voice Note Recorded] Please transcribe this audio recording and verify all medical statements.');
+        };
+        reader.readAsDataURL(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start(100);
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      timerRef.current = setInterval(() => {
+        setRecordingSeconds(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.warn('Microphone permission denied or unavailable:', err);
+      setMicError('Microphone access was denied or is restricted in this preview frame. You can upload an audio file directly or use text input.');
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (timerRef.current) clearInterval(timerRef.current);
     }
   };
 
   const handleRunVerification = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && !imageBase64 && !audioBase64) return;
 
     setIsAnalyzing(true);
     setResult(null);
@@ -89,6 +201,10 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
           claim: inputText,
           type: activeCategory,
           language: selectedLanguage,
+          imageData: imageBase64,
+          imageMimeType,
+          audioData: audioBase64,
+          audioMimeType
         }),
       });
 
@@ -98,10 +214,11 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
 
       const data: VerificationResult = await response.json();
       setResult(data);
+      saveToHistory(data);
     } catch (err) {
       console.error('Failed to verify:', err);
-      setResult({
-        claimText: inputText,
+      const fallbackData: VerificationResult = {
+        claimText: inputText || 'Health Statement Verification',
         verdict: 'MISLEADING',
         trustScore: 24,
         verdictTitle: 'Overstated Clinical Efficacy',
@@ -123,7 +240,9 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
         riskLevel: 'Moderate',
         recommendedAction: 'Do not alter prescribed treatments. Consult a primary physician.',
         category: activeCategory,
-      });
+      };
+      setResult(fallbackData);
+      saveToHistory(fallbackData);
     } finally {
       setIsAnalyzing(false);
     }
@@ -148,32 +267,32 @@ Verified via TruthRx AI Platform`;
     switch (verdict) {
       case 'FALSE':
         return {
-          bg: 'bg-red-50 border-red-200 text-red-800',
-          icon: <ShieldAlert className="w-5 h-5 text-red-600" />,
+          bg: 'bg-red-50 dark:bg-red-950/60 border-red-200 dark:border-red-900/60 text-red-800 dark:text-red-300',
+          icon: <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />,
           label: 'FALSE CLAIM',
         };
       case 'MISLEADING':
         return {
-          bg: 'bg-amber-50 border-amber-200 text-amber-900',
-          icon: <AlertTriangle className="w-5 h-5 text-amber-600" />,
+          bg: 'bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-300',
+          icon: <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />,
           label: 'MISLEADING / OVERSTATED',
         };
       case 'UNPROVEN':
         return {
-          bg: 'bg-yellow-50 border-yellow-200 text-yellow-900',
-          icon: <Info className="w-5 h-5 text-yellow-600" />,
+          bg: 'bg-yellow-50 dark:bg-yellow-950/60 border-yellow-200 dark:border-yellow-900/60 text-yellow-900 dark:text-yellow-300',
+          icon: <Info className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />,
           label: 'UNPROVEN CLAIM',
         };
       case 'VERIFIED':
         return {
-          bg: 'bg-emerald-50 border-emerald-200 text-emerald-900',
-          icon: <CheckCircle className="w-5 h-5 text-emerald-600" />,
+          bg: 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-900/60 text-emerald-900 dark:text-emerald-300',
+          icon: <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />,
           label: 'ACCURATE & VERIFIED',
         };
       default:
         return {
-          bg: 'bg-blue-50 border-blue-200 text-[#2563EB]',
-          icon: <Info className="w-5 h-5 text-[#2563EB]" />,
+          bg: 'bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-900/60 text-[#2563EB] dark:text-blue-400',
+          icon: <Info className="w-5 h-5 text-[#2563EB] dark:text-blue-400" />,
           label: 'UNDER REVIEW',
         };
     }
@@ -300,6 +419,61 @@ Verified via TruthRx AI Platform`;
                     </p>
                     <p className="text-[12px] text-[#6B7280] mt-0.5">Automatic OCR text extraction enabled</p>
                   </label>
+                </div>
+              )}
+
+              {/* Voice Note Upload / Recording Controls if Voice tab is active */}
+              {activeCategory === 'voicenote' && (
+                <div className="border border-dashed border-[#E5E7EB] bg-[#F8FAFC] rounded-[10px] p-4 text-center space-y-3">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                    {!isRecording ? (
+                      <button
+                        type="button"
+                        onClick={startVoiceRecording}
+                        className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-[13px] font-medium px-4 py-2 rounded-[8px] transition-colors cursor-pointer"
+                      >
+                        <Mic className="w-4 h-4" />
+                        <span>Record Voice Note</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={stopVoiceRecording}
+                        className="flex items-center gap-2 bg-red-700 text-white text-[13px] font-medium px-4 py-2 rounded-[8px] animate-pulse cursor-pointer"
+                      >
+                        <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                        <span>Stop Recording ({recordingSeconds}s)</span>
+                      </button>
+                    )}
+
+                    <span className="text-[12px] text-[#6B7280]">or</span>
+
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleAudioFileUpload}
+                      className="hidden"
+                      id="voice-file-input"
+                    />
+                    <label
+                      htmlFor="voice-file-input"
+                      className="flex items-center gap-2 bg-white border border-[#E5E7EB] hover:bg-[#F3F4F6] text-[#111827] text-[13px] font-medium px-3.5 py-2 rounded-[8px] cursor-pointer transition-colors"
+                    >
+                      <Mic className="w-4 h-4 text-[#2563EB]" />
+                      <span>{selectedFileName ? `Loaded: ${selectedFileName}` : 'Upload Audio File'}</span>
+                    </label>
+                  </div>
+                  {micError && (
+                    <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-[8px] p-2.5 text-[12px] text-left flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span>{micError}</span>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-[12px] text-[#6B7280]">
+                    Speech-to-text transcription & medical claim analysis enabled
+                  </p>
                 </div>
               )}
 

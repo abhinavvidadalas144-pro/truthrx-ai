@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { VerificationModal } from './components/VerificationModal';
+import { UserDashboardModal } from './components/UserDashboardModal';
 import { SampleClaims } from './components/SampleClaims';
 import { Features } from './components/Features';
 import { HowItWorks } from './components/HowItWorks';
@@ -9,9 +10,15 @@ import { FAQ } from './components/FAQ';
 import { About } from './components/About';
 import { Footer } from './components/Footer';
 import { AuthPage } from './components/AuthPage';
-import { NavSection, ClaimCategory, UserProfile } from './types';
+import { NavSection, ClaimCategory, UserProfile, VerificationResult } from './types';
+import { initTheme } from './utils/theme';
 
 export default function App() {
+  useEffect(() => {
+    const cleanup = initTheme();
+    return cleanup;
+  }, []);
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem('truthrx_auth_logged_in') === 'true';
   });
@@ -25,6 +32,7 @@ export default function App() {
 
   const [activeSection, setActiveSection] = useState<NavSection>('home');
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [modalInitialClaim, setModalInitialClaim] = useState('');
   const [modalInitialCategory, setModalInitialCategory] = useState<ClaimCategory>('whatsapp');
 
@@ -35,6 +43,11 @@ export default function App() {
     setIsAuthenticated(true);
     localStorage.setItem('truthrx_auth_logged_in', 'true');
     localStorage.setItem('truthrx_user_profile', JSON.stringify(user));
+  };
+
+  const handleUpdateProfile = (updated: UserProfile) => {
+    setCurrentUser(updated);
+    localStorage.setItem('truthrx_user_profile', JSON.stringify(updated));
   };
 
   const handleSignOut = () => {
@@ -104,12 +117,18 @@ export default function App() {
     setIsVerifyModalOpen(true);
   };
 
+  const handleSelectSavedClaim = (result: VerificationResult) => {
+    setModalInitialClaim(result.claimText);
+    setModalInitialCategory(result.category || 'text');
+    setIsVerifyModalOpen(true);
+  };
+
   if (!isAuthenticated) {
     return <AuthPage onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
-    <div className="min-h-screen bg-white text-[#111827] font-sans selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen bg-white dark:bg-[#0b0f17] text-[#111827] dark:text-gray-100 font-sans transition-colors duration-300 selection:bg-blue-500 selection:text-white">
       {/* Top Navigation */}
       <Navbar
         activeSection={activeSection}
@@ -117,6 +136,7 @@ export default function App() {
         onOpenVerifyModal={() => handleOpenVerifyModal('', 'whatsapp')}
         currentUser={currentUser}
         onSignOut={handleSignOut}
+        onOpenDashboard={() => setIsDashboardOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -159,6 +179,16 @@ export default function App() {
         onClose={() => setIsVerifyModalOpen(false)}
         initialClaimText={modalInitialClaim}
         initialCategory={modalInitialCategory}
+      />
+
+      {/* User Dashboard & History Modal */}
+      <UserDashboardModal
+        isOpen={isDashboardOpen}
+        onClose={() => setIsDashboardOpen(false)}
+        currentUser={currentUser}
+        onUpdateProfile={handleUpdateProfile}
+        onSelectSavedClaim={handleSelectSavedClaim}
+        onSignOut={handleSignOut}
       />
     </div>
   );

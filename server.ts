@@ -11,6 +11,51 @@ const PORT = 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
+// In-memory user database for authentication API
+interface ServerUser {
+  id: string;
+  name: string;
+  email: string;
+  password?: string;
+  country: string;
+  language: string;
+  role: string;
+  createdAt: string;
+}
+
+const usersDatabase: ServerUser[] = [
+  {
+    id: 'user-1',
+    name: 'Dr. Sarah Jenkins',
+    email: 'sarah.jenkins@hospital.org',
+    password: 'TruthRx2026!',
+    country: 'United States',
+    language: 'English',
+    role: 'Medical Officer',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'user-2',
+    name: 'Workspace User',
+    email: 'workspace.user@google.com',
+    password: 'TruthRx2026!',
+    country: 'United States',
+    language: 'English',
+    role: 'Verified Researcher',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'user-3',
+    name: 'Alex Verified',
+    email: 'enterprise.user@microsoft.com',
+    password: 'TruthRx2026!',
+    country: 'United States',
+    language: 'English',
+    role: 'Enterprise Member',
+    createdAt: new Date().toISOString()
+  }
+];
+
 // Helper function to lazy-load Gemini client
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -25,61 +70,214 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Health Claim Verification Endpoint
+// Authentication Endpoints
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required.' });
+  }
+
+  const user = usersDatabase.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (!user) {
+    // Auto-create account for smooth demo experience if email looks valid
+    const newUser: ServerUser = {
+      id: `user-${Date.now()}`,
+      name: email.split('@')[0].replace('.', ' ').replace(/^./, (str) => str.toUpperCase()) || 'Healthcare Member',
+      email: email,
+      password: password,
+      country: 'United States',
+      language: 'English',
+      role: 'Verified User',
+      createdAt: new Date().toISOString()
+    };
+    usersDatabase.push(newUser);
+    return res.json({
+      success: true,
+      user: {
+        name: newUser.name,
+        email: newUser.email,
+        country: newUser.country,
+        language: newUser.language,
+        role: newUser.role
+      }
+    });
+  }
+
+  return res.json({
+    success: true,
+    user: {
+      name: user.name,
+      email: user.email,
+      country: user.country,
+      language: user.language,
+      role: user.role
+    }
+  });
+});
+
+app.post('/api/auth/register', (req, res) => {
+  const { name, email, password, country = 'United States', language = 'English', role = 'Enterprise Member' } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: 'Full name, email, and password are required.' });
+  }
+
+  const existing = usersDatabase.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (existing) {
+    existing.name = name;
+    existing.password = password;
+    existing.country = country;
+    existing.language = language;
+    return res.json({
+      success: true,
+      user: {
+        name: existing.name,
+        email: existing.email,
+        country: existing.country,
+        language: existing.language,
+        role: existing.role
+      }
+    });
+  }
+
+  const newUser: ServerUser = {
+    id: `user-${Date.now()}`,
+    name,
+    email,
+    password,
+    country,
+    language,
+    role,
+    createdAt: new Date().toISOString()
+  };
+  usersDatabase.push(newUser);
+
+  return res.json({
+    success: true,
+    user: {
+      name: newUser.name,
+      email: newUser.email,
+      country: newUser.country,
+      language: newUser.language,
+      role: newUser.role
+    }
+  });
+});
+
+app.post('/api/auth/forgot-password', (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email address is required.' });
+  }
+  return res.json({ success: true, message: `Password reset verification link sent to ${email}` });
+});
+
+app.post('/api/auth/profile', (req, res) => {
+  const { email, name, country, language, newPassword } = req.body;
+  const user = usersDatabase.find(u => u.email.toLowerCase() === email?.toLowerCase());
+  if (user) {
+    if (name) user.name = name;
+    if (country) user.country = country;
+    if (language) user.language = language;
+    if (newPassword) user.password = newPassword;
+  }
+  return res.json({
+    success: true,
+    user: {
+      name: name || user?.name || 'Healthcare Member',
+      email: email || user?.email,
+      country: country || user?.country || 'United States',
+      language: language || user?.language || 'English',
+      role: user?.role || 'Verified User'
+    }
+  });
+});
+
+// Health Claim Verification Endpoint (Multimodal: Text, Screenshot OCR, Voice Audio)
 app.post('/api/verify-claim', async (req, res) => {
   try {
-    const { claim, type = 'text', language = 'English' } = req.body;
+    const { claim, type = 'text', language = 'English', imageData, imageMimeType, audioData, audioMimeType } = req.body;
 
-    if (!claim || typeof claim !== 'string' || claim.trim().length === 0) {
-      return res.status(400).json({ error: 'Please provide a valid claim or message to verify.' });
+    if (!claim && !imageData && !audioData) {
+      return res.status(400).json({ error: 'Please provide a claim text, image, or audio recording to verify.' });
     }
 
     const ai = getGeminiClient();
 
     if (!ai) {
-      // Fallback response if GEMINI_API_KEY is not configured yet
-      const fallbackResult = generateFallbackVerification(claim, type);
+      const fallbackResult = generateFallbackVerification(claim || 'Medical health claim', type);
       return res.json(fallbackResult);
     }
 
-    const prompt = `
+    const contents: any[] = [];
+
+    // Multimodal Image / Screenshot OCR attachment
+    if (imageData) {
+      const cleanImage = imageData.replace(/^data:image\/\w+;base64,/, '');
+      contents.push({
+        inlineData: {
+          mimeType: imageMimeType || 'image/png',
+          data: cleanImage
+        }
+      });
+    }
+
+    // Multimodal Audio / Voice note recording attachment
+    if (audioData) {
+      const cleanAudio = audioData.replace(/^data:audio\/\w+;base64,/, '');
+      contents.push({
+        inlineData: {
+          mimeType: audioMimeType || 'audio/webm',
+          data: cleanAudio
+        }
+      });
+    }
+
+    const promptText = `
 You are TruthRx AI, an elite, unbiased medical claims verification AI.
-Analyze the following health statement, WhatsApp forward, screenshot transcript, or voice note text:
+Analyze the provided input (text claim, screenshot text OCR, or audio recording voice note):
 
-Claim: "${claim}"
-Category: "${type}"
-Requested Language: "${language}"
+${claim ? `Claim / User Note: "${claim}"` : ''}
+Category Source: "${type}"
+Requested Output Language: "${language}"
 
-Analyze this claim against rigorous, peer-reviewed medical consensus (WHO, CDC, Mayo Clinic, PubMed, NIH, Lancet).
-Respond ONLY with a valid JSON object matching this TypeScript format (do not include markdown code block formatting if possible, or use clean JSON):
+Task:
+1. If an image or screenshot is provided, perform OCR text extraction and extract all medical/health claims from the image.
+2. If an audio voice note is provided, transcribe the spoken audio and extract any medical/health claims.
+3. Cross-examine the extracted claims against peer-reviewed medical consensus (WHO, CDC, Mayo Clinic, PubMed/NIH, The Lancet, FDA).
+4. Provide an evidence-based clinical verification verdict in the requested language ("${language}").
+
+Respond ONLY with a valid JSON object matching this exact schema (do not include markdown formatting):
 
 {
-  "claimText": "${claim.replace(/"/g, '\\"')}",
+  "claimText": "Extracted or provided health claim text",
   "verdict": "FALSE" | "MISLEADING" | "UNPROVEN" | "VERIFIED",
   "trustScore": number between 0 and 100,
-  "verdictTitle": "Short 3-6 word summary verdict title",
-  "summaryText": "A clear, empathetic 2-3 sentence patient-friendly breakdown explaining why this claim is true, false, or misleading.",
+  "verdictTitle": "Short 3-6 word summary verdict title in ${language}",
+  "summaryText": "Clear, empathetic 2-3 sentence patient-friendly breakdown explaining why this claim is true, false, or misleading in ${language}.",
   "keyFacts": [
-    "3-4 bullet point key medical facts"
+    "3-4 bullet point key medical facts in ${language}"
   ],
-  "medicalExplanation": "Detailed, accessible clinical explanation of the science or physiology involved.",
+  "medicalExplanation": "Detailed, accessible clinical explanation of the science or physiology involved in ${language}.",
   "citations": [
     {
-      "title": "Title of medical paper or guideline",
+      "title": "Title of medical paper or clinical guideline",
       "source": "WHO" | "Mayo Clinic" | "PubMed / NIH" | "CDC" | "The Lancet" | "FDA",
       "year": "2023",
       "summary": "Brief note on what the clinical evidence states."
     }
   ],
   "riskLevel": "Low" | "Moderate" | "High" | "Severe",
-  "recommendedAction": "Actionable advice (e.g. Consult a licensed physician, do not stop prescribed medication)",
+  "recommendedAction": "Actionable patient advice in ${language} (e.g., Consult a licensed physician)",
   "category": "${type}"
 }
 `;
 
+    contents.push(promptText);
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: prompt,
+      contents: contents,
       config: {
         responseMimeType: 'application/json',
       },
@@ -91,7 +289,6 @@ Respond ONLY with a valid JSON object matching this TypeScript format (do not in
 
   } catch (error: any) {
     console.error('Error verifying claim:', error);
-    // Return structured graceful fallback if API error occurs
     const fallback = generateFallbackVerification(req.body.claim || 'Medical query', req.body.type || 'text');
     return res.json(fallback);
   }

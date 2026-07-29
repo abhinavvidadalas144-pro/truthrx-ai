@@ -18,48 +18,48 @@ export const About: React.FC = () => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 0.7, ease: easeCurve }}
-      className="py-20 bg-[#F8FAFC] border-t border-[#E5E7EB]"
+      className="py-20 bg-[#F8FAFC] dark:bg-[#0f172a] border-t border-[#E5E7EB] dark:border-gray-800/80 transition-colors duration-300"
       id="about"
     >
-      <div className="max-w-[1360px] mx-auto px-6 md:px-12 lg:px-[56px]">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 md:px-8 lg:px-10">
         
         <div className="grid grid-cols-12 gap-8 items-center">
           
           {/* Left Text */}
           <div className="col-span-12 lg:col-span-7 space-y-5">
-            <p className="text-[13px] font-medium text-[#2563EB] uppercase tracking-wider mb-2">
+            <p className="text-[13px] font-medium text-[#2563EB] dark:text-blue-400 uppercase tracking-wider mb-2">
               Mission & Governance
             </p>
 
-            <h2 className="text-[28px] font-semibold tracking-tight text-[#111827] leading-snug">
+            <h2 className="text-[28px] font-semibold tracking-tight text-[#111827] dark:text-white leading-snug">
               Democratizing Evidence-Based Medical Truth
             </h2>
 
-            <p className="text-[15px] font-normal text-[#4B5563] leading-relaxed">
+            <p className="text-[15px] font-normal text-[#4B5563] dark:text-gray-300 leading-relaxed">
               In an era where unverified health claims spread rapidly across messaging platforms and social networks, TruthRx AI operates as an impartial clinical verification framework.
             </p>
 
-            <p className="text-[14px] text-[#6B7280] leading-relaxed">
+            <p className="text-[14px] text-[#6B7280] dark:text-gray-400 leading-relaxed">
               We integrate generative language model reasoning with real-time indexing of peer-reviewed health references to enable healthcare organizations, providers, and consumers to verify health statements with speed and precision.
             </p>
 
             {/* Mission Pillar Badges */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
               <div className="ent-card flex items-start gap-3">
-                <ShieldCheck className="w-5 h-5 text-[#2563EB] flex-shrink-0 mt-0.5" />
+                <ShieldCheck className="w-5 h-5 text-[#2563EB] dark:text-blue-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="text-[15px] font-semibold text-[#111827]">Clinical Standards</h4>
-                  <p className="text-[13px] text-[#6B7280] mt-1 leading-snug">
+                  <h4 className="text-[15px] font-semibold text-[#111827] dark:text-white">Clinical Standards</h4>
+                  <p className="text-[13px] text-[#6B7280] dark:text-gray-400 mt-1 leading-snug">
                     Grounded strictly in peer-reviewed scientific consensus without commercial influence.
                   </p>
                 </div>
               </div>
 
               <div className="ent-card flex items-start gap-3">
-                <Globe2 className="w-5 h-5 text-[#2563EB] flex-shrink-0 mt-0.5" />
+                <Globe2 className="w-5 h-5 text-[#2563EB] dark:text-blue-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="text-[15px] font-semibold text-[#111827]">Plain-Language Synthesis</h4>
-                  <p className="text-[13px] text-[#6B7280] mt-1 leading-snug">
+                  <h4 className="text-[15px] font-semibold text-[#111827] dark:text-white">Plain-Language Synthesis</h4>
+                  <p className="text-[13px] text-[#6B7280] dark:text-gray-400 mt-1 leading-snug">
                     Translates complex medical literature into clear, actionable summaries for patients and families.
                   </p>
                 </div>
@@ -70,24 +70,24 @@ export const About: React.FC = () => {
           {/* Right Stats Box */}
           <div className="col-span-12 lg:col-span-5">
             <div className="ent-card space-y-6">
-              <h3 className="text-[18px] font-semibold text-[#111827] pb-3 border-b border-[#E5E7EB]">
+              <h3 className="text-[18px] font-semibold text-[#111827] dark:text-white pb-3 border-b border-[#E5E7EB] dark:border-gray-800">
                 Platform Metrics
               </h3>
 
               <div className="grid grid-cols-2 gap-6">
                 {stats.map((stat, idx) => (
                   <div key={idx} className="space-y-1">
-                    <div className="text-[28px] font-semibold text-[#2563EB] tracking-tight">
+                    <div className="text-[28px] font-semibold text-[#2563EB] dark:text-blue-400 tracking-tight">
                       {stat.value}
                     </div>
-                    <div className="text-[12px] text-[#6B7280] font-medium">
+                    <div className="text-[12px] text-[#6B7280] dark:text-gray-400 font-medium">
                       {stat.label}
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="pt-4 border-t border-[#E5E7EB] text-[12px] text-[#6B7280] leading-relaxed">
+              <div className="pt-4 border-t border-[#E5E7EB] dark:border-gray-800 text-[12px] text-[#6B7280] dark:text-gray-400 leading-relaxed">
                 TruthRx AI operates as an independent medical informational engine and adheres to global healthcare accuracy standards.
               </div>
             </div>

@@ -44,20 +44,20 @@ export const Features: React.FC = () => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 0.7, ease: easeCurve }}
-      className="py-20 bg-white border-t border-[#E5E7EB]"
+      className="py-20 bg-white dark:bg-[#0b0f17] border-t border-[#E5E7EB] dark:border-gray-800/80 transition-colors duration-300"
       id="features"
     >
-      <div className="max-w-[1360px] mx-auto px-6 md:px-12 lg:px-[56px]">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 md:px-8 lg:px-10">
         
         {/* Header */}
         <div className="max-w-2xl mb-12">
-          <p className="text-[13px] font-medium text-[#2563EB] uppercase tracking-wider mb-2">
+          <p className="text-[13px] font-medium text-[#2563EB] dark:text-blue-400 uppercase tracking-wider mb-2">
             System Capabilities
           </p>
-          <h2 className="text-[28px] font-semibold tracking-tight text-[#111827] mb-3">
+          <h2 className="text-[28px] font-semibold tracking-tight text-[#111827] dark:text-white mb-3">
             Built for Clinical Accuracy, Scale & Compliance
           </h2>
-          <p className="text-[15px] font-normal text-[#6B7280] leading-relaxed">
+          <p className="text-[15px] font-normal text-[#6B7280] dark:text-gray-400 leading-relaxed">
             TruthRx AI bridges the gap between peer-reviewed medical research and everyday health communication.
           </p>
         </div>
@@ -74,18 +74,18 @@ export const Features: React.FC = () => {
               className="ent-card flex flex-col justify-between"
             >
               <div>
-                <div className="w-10 h-10 rounded-lg bg-[#F8FAFC] border border-[#E5E7EB] flex items-center justify-center mb-5">
+                <div className="w-10 h-10 rounded-lg bg-[#F8FAFC] dark:bg-gray-800 border border-[#E5E7EB] dark:border-gray-700 flex items-center justify-center mb-5">
                   {feat.icon}
                 </div>
-                <h3 className="text-[18px] font-semibold text-[#111827] mb-2">
+                <h3 className="text-[18px] font-semibold text-[#111827] dark:text-white mb-2">
                   {feat.title}
                 </h3>
-                <p className="text-[14px] text-[#6B7280] leading-relaxed">
+                <p className="text-[14px] text-[#6B7280] dark:text-gray-400 leading-relaxed">
                   {feat.description}
                 </p>
               </div>
 
-              <div className="pt-4 mt-6 border-t border-[#E5E7EB] flex items-center text-[12px] font-medium text-[#6B7280]">
+              <div className="pt-4 mt-6 border-t border-[#E5E7EB] dark:border-gray-800 flex items-center text-[12px] font-medium text-[#6B7280] dark:text-gray-400">
                 <span>Enterprise Medical Standard</span>
               </div>
             </motion.div>

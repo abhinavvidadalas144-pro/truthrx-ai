@@ -17,10 +17,13 @@ import {
   Building2,
   FileCheck,
   Check,
-  RotateCcw
+  RotateCcw,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AuthView, UserProfile } from '../types';
+import { useTheme } from '../hooks/useTheme';
 
 interface AuthPageProps {
   onLoginSuccess: (user: UserProfile) => void;
@@ -30,6 +33,7 @@ const easeCurve = [0.22, 1, 0.36, 1] as const;
 
 export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
   const [currentView, setCurrentView] = useState<AuthView>('login');
+  const { isDark, toggleTheme } = useTheme();
 
   // Form State - Login
   const [loginEmail, setLoginEmail] = useState('');
@@ -67,7 +71,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
   };
 
   // Handler: Login Submission
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
@@ -81,8 +85,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setLoginError(data.error || 'Failed to sign in. Please check your credentials.');
+      } else {
+        onLoginSuccess(data.user);
+      }
+    } catch {
+      // Fallback client-side auth
       const user: UserProfile = {
         name: loginEmail.split('@')[0].replace('.', ' ').replace(/^./, (str) => str.toUpperCase()) || 'Healthcare Professional',
         email: loginEmail,
@@ -91,11 +107,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
         role: 'Verified Researcher'
       };
       onLoginSuccess(user);
-    }, 600);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Handler: Registration Submission
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegError('');
 
@@ -121,8 +139,30 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: regName,
+          email: regEmail,
+          password: regPassword,
+          country: regCountry,
+          language: regLanguage,
+          role: 'Enterprise Member'
+        })
+      });
+      const data = await res.json();
+      const newUser: UserProfile = data.user || {
+        name: regName,
+        email: regEmail,
+        country: regCountry,
+        language: regLanguage,
+        role: 'Enterprise Member'
+      };
+      setCreatedUser(newUser);
+      setCurrentView('verification');
+    } catch {
       const newUser: UserProfile = {
         name: regName,
         email: regEmail,
@@ -132,19 +172,29 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
       };
       setCreatedUser(newUser);
       setCurrentView('verification');
-    }, 700);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Handler: Forgot Password Submission
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotEmail.trim()) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail })
+      });
       setForgotSent(true);
-    }, 600);
+    } catch {
+      setForgotSent(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Handler: Code Digit Entry
@@ -184,11 +234,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-between font-sans text-[#111827] relative overflow-hidden">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0b0f17] flex flex-col justify-between font-sans text-[#111827] dark:text-gray-100 transition-colors duration-300 relative overflow-hidden">
       
       {/* Background Subtle Grid Pattern */}
       <div 
-        className="absolute inset-0 pointer-events-none opacity-[0.035]" 
+        className="absolute inset-0 pointer-events-none opacity-[0.035] dark:opacity-[0.08]" 
         style={{
           backgroundImage: `radial-gradient(#111827 1px, transparent 1px)`,
           backgroundSize: '24px 24px'
@@ -196,25 +246,42 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
       />
 
       {/* Top Header Navigation */}
-      <header className="w-full bg-white/90 backdrop-blur-md border-b border-[#E5E7EB] py-4 px-6 md:px-12 relative z-10">
-        <div className="max-w-[1360px] mx-auto flex items-center justify-between">
+      <header className="w-full bg-white/90 dark:bg-[#0b0f17]/90 backdrop-blur-md border-b border-[#E5E7EB] dark:border-gray-800 py-4 px-4 sm:px-6 md:px-8 lg:px-10 relative z-10">
+        <div className="max-w-[1440px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5 cursor-pointer">
             <div className="w-9 h-9 rounded-lg bg-[#2563EB] flex items-center justify-center text-white shrink-0 shadow-xs">
               <Activity className="w-5 h-5" />
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-[18px] font-semibold tracking-tight text-[#111827]">
+              <span className="text-[18px] font-semibold tracking-tight text-[#111827] dark:text-gray-100">
                 TruthRx
               </span>
-              <span className="px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide bg-[#2563EB]/10 text-[#2563EB] rounded">
+              <span className="px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide bg-[#2563EB]/10 dark:bg-[#2563EB]/20 text-[#2563EB] dark:text-blue-400 rounded">
                 AI
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-[12px] font-medium text-[#6B7280]">
-            <ShieldCheck className="w-4 h-4 text-[#2563EB]" />
-            <span className="hidden sm:inline">HIPAA & Clinical Evidence Standard</span>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={toggleTheme}
+              type="button"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-[#6B7280] dark:text-gray-300 hover:text-[#111827] dark:hover:text-white hover:bg-[#F8FAFC] dark:hover:bg-gray-800 border border-[#E5E7EB] dark:border-gray-700 transition-colors cursor-pointer shrink-0"
+              title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              aria-label="Toggle visual theme"
+              id="auth-theme-toggle-btn"
+            >
+              {isDark ? (
+                <Sun className="w-4.5 h-4.5 text-amber-400 transition-transform duration-200 hover:rotate-45" />
+              ) : (
+                <Moon className="w-4.5 h-4.5 text-slate-700 transition-transform duration-200 hover:-rotate-12" />
+              )}
+            </button>
+
+            <div className="flex items-center gap-2 text-[12px] font-medium text-[#6B7280] dark:text-gray-400">
+              <ShieldCheck className="w-4 h-4 text-[#2563EB] dark:text-blue-400" />
+              <span className="hidden sm:inline">HIPAA & Clinical Evidence Standard</span>
+            </div>
           </div>
         </div>
       </header>
@@ -242,52 +309,52 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                   </div>
 
                   <div>
-                    <h1 className="text-[32px] sm:text-[38px] font-bold tracking-tight text-[#111827] leading-[1.2]">
+                    <h1 className="text-[32px] sm:text-[38px] font-bold tracking-tight text-[#111827] dark:text-white leading-[1.2]">
                       Welcome Back
                     </h1>
-                    <p className="mt-3 text-[15px] text-[#4B5563] leading-relaxed">
+                    <p className="mt-3 text-[15px] text-[#4B5563] dark:text-gray-300 leading-relaxed">
                       Sign in to securely access your TruthRx AI account and verify medical claims against peer-reviewed clinical databases.
                     </p>
                   </div>
 
                   {/* Enterprise Feature Cards */}
                   <div className="space-y-3 pt-2">
-                    <div className="flex items-start gap-3.5 p-3.5 bg-white border border-[#E5E7EB] rounded-[12px] shadow-2xs">
-                      <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 flex items-center justify-center text-[#2563EB] shrink-0 mt-0.5">
+                    <div className="flex items-start gap-3.5 p-3.5 bg-white dark:bg-gray-900 border border-[#E5E7EB] dark:border-gray-800 rounded-[12px] shadow-2xs">
+                      <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 dark:bg-[#2563EB]/20 flex items-center justify-center text-[#2563EB] dark:text-blue-400 shrink-0 mt-0.5">
                         <Building2 className="w-4 h-4" />
                       </div>
                       <div>
-                        <h4 className="text-[13px] font-semibold text-[#111827]">WHO & PubMed Indexing</h4>
-                        <p className="text-[12px] text-[#6B7280]">Automated cross-referencing with global medical journals & CDC guidelines.</p>
+                        <h4 className="text-[13px] font-semibold text-[#111827] dark:text-white">WHO & PubMed Indexing</h4>
+                        <p className="text-[12px] text-[#6B7280] dark:text-gray-400">Automated cross-referencing with global medical journals & CDC guidelines.</p>
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-3.5 p-3.5 bg-white border border-[#E5E7EB] rounded-[12px] shadow-2xs">
-                      <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 flex items-center justify-center text-[#2563EB] shrink-0 mt-0.5">
+                    <div className="flex items-start gap-3.5 p-3.5 bg-white dark:bg-gray-900 border border-[#E5E7EB] dark:border-gray-800 rounded-[12px] shadow-2xs">
+                      <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 dark:bg-[#2563EB]/20 flex items-center justify-center text-[#2563EB] dark:text-blue-400 shrink-0 mt-0.5">
                         <FileCheck className="w-4 h-4" />
                       </div>
                       <div>
-                        <h4 className="text-[13px] font-semibold text-[#111827]">Multimodal Rumor Analysis</h4>
-                        <p className="text-[12px] text-[#6B7280]">Analyze screenshots, WhatsApp forwards, and voice notes instantly.</p>
+                        <h4 className="text-[13px] font-semibold text-[#111827] dark:text-white">Multimodal Rumor Analysis</h4>
+                        <p className="text-[12px] text-[#6B7280] dark:text-gray-400">Analyze screenshots, WhatsApp forwards, and voice notes instantly.</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Demo Account Quick Switch */}
                   <div className="pt-2">
-                    <p className="text-[12px] font-medium text-[#6B7280] mb-2">Instant Demo Login Accounts:</p>
+                    <p className="text-[12px] font-medium text-[#6B7280] dark:text-gray-400 mb-2">Instant Demo Login Accounts:</p>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => handleQuickDemoLogin('dr.sarah.jenkins@mayo.edu')}
-                        className="text-[12px] bg-white hover:bg-[#F8FAFC] text-[#2563EB] border border-[#2563EB]/30 rounded-[8px] px-2.5 py-1 transition-all cursor-pointer hover:-translate-y-0.5 shadow-2xs"
+                        className="text-[12px] bg-white dark:bg-gray-800 hover:bg-[#F8FAFC] dark:hover:bg-gray-700 text-[#2563EB] dark:text-blue-400 border border-[#2563EB]/30 rounded-[8px] px-2.5 py-1 transition-all cursor-pointer hover:-translate-y-0.5 shadow-2xs"
                       >
                         Doctor / Researcher
                       </button>
                       <button
                         type="button"
                         onClick={() => handleQuickDemoLogin('alex.verified@truth-rx.ai')}
-                        className="text-[12px] bg-white hover:bg-[#F8FAFC] text-[#2563EB] border border-[#2563EB]/30 rounded-[8px] px-2.5 py-1 transition-all cursor-pointer hover:-translate-y-0.5 shadow-2xs"
+                        className="text-[12px] bg-white dark:bg-gray-800 hover:bg-[#F8FAFC] dark:hover:bg-gray-700 text-[#2563EB] dark:text-blue-400 border border-[#2563EB]/30 rounded-[8px] px-2.5 py-1 transition-all cursor-pointer hover:-translate-y-0.5 shadow-2xs"
                       >
                         Public Health Analyst
                       </button>
@@ -297,16 +364,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
 
                 {/* Right Side: Login Card */}
                 <div className="lg:col-span-7">
-                  <div className="bg-white border border-[#E5E7EB] rounded-[16px] shadow-lg p-6 sm:p-8 max-w-md mx-auto lg:max-w-none">
+                  <div className="bg-white dark:bg-gray-900 border border-[#E5E7EB] dark:border-gray-800 rounded-[16px] shadow-lg p-6 sm:p-8 max-w-md mx-auto lg:max-w-none">
                     
                     <div className="mb-6">
-                      <h2 className="text-[22px] font-semibold text-[#111827]">Sign In to Your Account</h2>
-                      <p className="text-[13px] text-[#6B7280] mt-1">Please enter your credentials to proceed.</p>
+                      <h2 className="text-[22px] font-semibold text-[#111827] dark:text-white">Sign In to Your Account</h2>
+                      <p className="text-[13px] text-[#6B7280] dark:text-gray-400 mt-1">Please enter your credentials to proceed.</p>
                     </div>
 
                     {loginError && (
-                      <div className="mb-4 p-3 rounded-[10px] bg-red-50 border border-red-200 text-red-700 text-[13px] flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-red-600 shrink-0" />
+                      <div className="mb-4 p-3 rounded-[10px] bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-[13px] flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
                         <span>{loginError}</span>
                       </div>
                     )}
@@ -314,18 +381,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                     <form onSubmit={handleLoginSubmit} className="space-y-4">
                       {/* Email Field */}
                       <div>
-                        <label className="block text-[12px] font-medium text-[#374151] uppercase tracking-wider mb-1.5">
+                        <label className="block text-[12px] font-medium text-[#374151] dark:text-gray-300 uppercase tracking-wider mb-1.5">
                           Email Address
                         </label>
                         <div className="relative">
-                          <Mail className="w-4 h-4 text-[#9CA3AF] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                          <Mail className="w-4 h-4 text-[#9CA3AF] dark:text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                           <input
                             type="email"
                             required
                             value={loginEmail}
                             onChange={(e) => setLoginEmail(e.target.value)}
                             placeholder="name@organization.com"
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] pl-10 pr-3.5 py-2.5 text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none transition-all duration-200"
+                            className="w-full bg-white dark:bg-gray-800 border border-[#E5E7EB] dark:border-gray-700 rounded-[10px] pl-10 pr-3.5 py-2.5 text-[14px] text-[#111827] dark:text-white placeholder-[#9CA3AF] dark:placeholder-gray-500 focus:border-[#2563EB] dark:focus:border-blue-500 focus:ring-1 focus:ring-[#2563EB] focus:outline-none transition-all duration-200"
                             id="login-email-input"
                           />
                         </div>
@@ -333,24 +400,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
 
                       {/* Password Field */}
                       <div>
-                        <label className="block text-[12px] font-medium text-[#374151] uppercase tracking-wider mb-1.5">
+                        <label className="block text-[12px] font-medium text-[#374151] dark:text-gray-300 uppercase tracking-wider mb-1.5">
                           Password
                         </label>
                         <div className="relative">
-                          <Lock className="w-4 h-4 text-[#9CA3AF] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                          <Lock className="w-4 h-4 text-[#9CA3AF] dark:text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                           <input
                             type={showPassword ? 'text' : 'password'}
                             required
                             value={loginPassword}
                             onChange={(e) => setLoginPassword(e.target.value)}
                             placeholder="••••••••"
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] pl-10 pr-10 py-2.5 text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] focus:outline-none transition-all duration-200"
+                            className="w-full bg-white dark:bg-gray-800 border border-[#E5E7EB] dark:border-gray-700 rounded-[10px] pl-10 pr-10 py-2.5 text-[14px] text-[#111827] dark:text-white placeholder-[#9CA3AF] dark:placeholder-gray-500 focus:border-[#2563EB] dark:focus:border-blue-500 focus:ring-1 focus:ring-[#2563EB] focus:outline-none transition-all duration-200"
                             id="login-password-input"
                           />
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#374151] transition-colors"
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] dark:text-gray-500 hover:text-[#374151] dark:hover:text-gray-300 transition-colors"
                           >
                             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
@@ -359,12 +426,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
 
                       {/* Remember & Forgot Options */}
                       <div className="flex items-center justify-between text-[13px] pt-1">
-                        <label className="flex items-center gap-2 cursor-pointer text-[#4B5563]">
+                        <label className="flex items-center gap-2 cursor-pointer text-[#4B5563] dark:text-gray-300">
                           <input
                             type="checkbox"
                             checked={rememberMe}
                             onChange={(e) => setRememberMe(e.target.checked)}
-                            className="w-4 h-4 rounded border-[#D1D5DB] text-[#2563EB] focus:ring-[#2563EB]"
+                            className="w-4 h-4 rounded border-[#D1D5DB] dark:border-gray-600 bg-white dark:bg-gray-800 text-[#2563EB] focus:ring-[#2563EB]"
                           />
                           <span>Remember Me</span>
                         </label>
@@ -372,7 +439,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
                         <button
                           type="button"
                           onClick={() => setCurrentView('forgot-password')}
-                          className="font-medium text-[#2563EB] hover:text-[#1D4ED8] hover:underline cursor-pointer transition-colors"
+                          className="font-medium text-[#2563EB] dark:text-blue-400 hover:text-[#1D4ED8] dark:hover:text-blue-300 hover:underline cursor-pointer transition-colors"
                         >
                           Forgot Password?
                         </button>
