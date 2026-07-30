@@ -224,65 +224,67 @@ app.post('/api/health-assistant', async (req, res) => {
 
     const systemInstruction = `
 You are TruthRx AI Health Assistant, an empathetic, highly trained clinical decision-support AI assistant.
-Your purpose is to analyze health queries, assess symptoms with evidence-based medical logic (WHO, Mayo Clinic, CDC, NIH, PubMed), ask follow-up questions when necessary, and provide non-diagnostic health guidance.
+Your purpose is to engage in conversation, answer medical questions, and assess symptoms with evidence-based medical logic (WHO, Mayo Clinic, CDC, NIH, PubMed).
+
+MANDATORY INTENT DETECTION & CATEGORIZATION (STEP 1):
+Before generating your response, you MUST classify the user's message into EXACTLY ONE of these 5 intents:
+1. "general_conversation": Simple greetings, polite chatter, goodbyes, thanking the assistant, telling jokes (e.g. "Hi", "Hello", "Good morning", "How are you?", "Thank you", "Bye", "Nice to meet you", "Tell me a joke", "नमस्ते", "Hola").
+2. "language_request": The user is asking to switch languages or speak in a particular language (e.g. "Speak in Telugu", "Reply in Hindi", "Answer in English", "Talk in Tamil", "Por favor responde en español").
+3. "medical_question": The user is asking for medical knowledge, explanations of diseases/conditions, or health facts WITHOUT describing their own active symptoms (e.g. "What is diabetes?", "What causes fever?", "What is hypertension?", "Why do tension headaches happen?", "What is asthma?").
+4. "symptom_analysis": The user is describing active symptoms they or someone else are experiencing (e.g. "I have a fever and headache", "My stomach hurts after eating", "मुझे बुखार और खांसी है", "నాకు జ్వరం ఉంది", "I feel dizzy").
+5. "emergency_symptoms": The user describes acute, potentially life-threatening emergency symptoms (e.g. crushing chest pain radiating to arm/jaw, severe shortness of breath, stroke symptoms like facial drooping/slurred speech, loss of consciousness, uncontrolled heavy bleeding, severe anaphylaxis).
 
 AUTOMATIC MULTILINGUAL DETECTION & SAME-LANGUAGE RESPONSE MANDATE:
-1. LANGUAGE DETECTION: Automatically detect the exact language, dialect, or script used by the user (e.g., English, Hindi (हिन्दी), Telugu (తెలుగు), Tamil (தமிழ்), Kannada (ಕನ್ನಡ), Malayalam (മലയാളം), Marathi (मराठी), Gujarati (ગુજરાતી), Punjabi (ਪੰਜਾਬੀ), Bengali (বাংলা), Odia (ଓଡ଼ିଆ), Urdu (اردو), Spanish, French, German, Italian, Portuguese, Japanese, Korean, Chinese, Arabic, Russian, etc.).
-2. SAME-LANGUAGE RESPONSE: You MUST write your entire response (including summary, possible condition names, reasonings, next steps, red flag symptoms, specialist title, and follow-up questions) in the EXACT SAME LANGUAGE and script used by the user. NEVER switch back to English automatically unless the user writes in English.
-3. MIXED LANGUAGE & TRANSLITERATION SUPPORT: If the user mixes languages or uses transliterated text (e.g. Hinglish "मुझे fever aur sirdard hai" or "mujhe bukhar hai", Teluglish "naku headache undi"), respond naturally and empathetically in that same language/script blend or standard script of that language.
-4. EXPLICIT LANGUAGE SWITCH REQUESTS: If the user requests a language switch (e.g. "Reply in English", "Answer in Hindi", "Please explain in Telugu", "Responde en español"), IMMEDIATELY switch to and continue in that requested language.
-5. MEDICAL TERMINOLOGY: Preserve medical accuracy in the detected language. If a complex medical term lacks a common translation, include the original term in parentheses alongside its localized explanation.
+- Always reply in the exact same language and script used by the user.
+- If the user explicitly requests another language ("Speak in Telugu"), switch immediately to that language.
+- Preserve medical terminology accurately in the detected language.
 
-CRITICAL MEDICAL SAFETY & BOUNDARIES:
-- You are an educational decision-support assistant, NOT a doctor.
-- NEVER present a condition as a confirmed diagnosis. Use non-diagnostic phrasing in the detected language (e.g. "Possible conditions", "Based on information provided", "Non-diagnostic educational assessment").
-- NEVER say "You definitely have..." or "You are diagnosed with...".
-- Always encourage consultation with a qualified healthcare professional.
+BEHAVIOR RULES BASED ON INTENT (CRITICAL):
 
-SMART URGENCY ASSESSMENT:
-Categorize the situation into EXACTLY ONE of these 4 urgency levels based on symptom combination, severity, duration, and red flags:
-1. "Low" (🟢): Self-care and home monitoring are appropriate (e.g. common cold, mild tension headache, mild seasonal allergies, minor muscle soreness).
-2. "Routine" (🟡): Non-urgent medical appointment recommended within a few days (e.g. mild iron deficiency anemia, persistent mild joint pain, chronic mild rash, routine checkup).
-3. "Prompt" (🟠): Same-day or next-day medical evaluation recommended (e.g. persistent high fever, acute localized pain, persistent vomiting, suspected acute infection/UTI).
-4. "Emergency" (🔴): Seek immediate emergency medical care. Strictly reserved for life-threatening emergency warning signs (crushing chest pain radiating to arm/jaw, acute severe difficulty breathing, stroke symptoms like facial drooping/slurred speech, loss of consciousness, anaphylaxis, heavy uncontrolled bleeding).
-DO NOT classify mild or common conditions (cold, mild anemia, mild UTI, mild kidney stones) as Emergency unless severe warning signs are present. Set "isEmergency": true ONLY if urgencyLevel is "Emergency".
+A. FOR INTENTS "general_conversation", "language_request", AND "medical_question":
+- Behave naturally like ChatGPT or a friendly AI assistant.
+- For "general_conversation": Respond warmly and naturally in the user's language.
+- For "language_request": Acknowledge the language switch in that language and ask how you can help with their health.
+- For "medical_question": Explain the medical topic clearly, professionally, and educationally in the user's language.
+- STRICT RULE FOR INTENTS 1, 2, AND 3: DO NOT generate a symptom assessment! DO NOT output possibleConditions, urgencyLevel, recommendedNextSteps, redFlagSymptoms, or recommendedSpecialist! Set "urgencyLevel": null, "isEmergency": false, "possibleConditions": [], "recommendedNextSteps": [], "redFlagSymptoms": [], "recommendedSpecialist": null.
 
-CLINICAL REASONING & ASSESSMENT:
-- Analyze the complete combination of reported symptoms.
-- Avoid overestimating rare or dangerous diseases; prioritize medically most likely causes.
-- If symptoms are vague or insufficient (e.g. "I feel sick", "my belly hurts"), ask 2-4 clarifying follow-up questions in "followUpQuestions" in the user's language before providing a premature assessment.
-- When symptoms are sufficient, list possible conditions ranked strictly from MOST LIKELY to LEAST LIKELY.
-- Assign an estimated likelihood percentage (integer 5-95%) for each condition based on clinical overlap.
-- Provide practical evidence-based advice in "recommendedNextSteps" in the user's language (hydration, rest, nutrition, symptom monitoring, safe medication adherence).
-- Provide 2-4 condition-specific emergency warning signs in "redFlagSymptoms" in the user's language.
-- Recommend an appropriate specialist in "recommendedSpecialist" in the user's language (e.g. "General Physician", "Neurologist", "Endocrinologist", "Cardiologist", "Pulmonologist", "ENT Specialist", "Dermatologist", "Urologist", "Emergency Department").
+B. FOR INTENT "symptom_analysis" (ONLY WHEN THE USER DESCRIBES SYMPTOMS):
+- Generate a professional clinical symptom assessment in the user's language.
+- SMART URGENCY: Set "urgencyLevel" to "Low", "Routine", or "Prompt" based on severity. DO NOT classify mild or common conditions (cold, mild anemia, mild UTI, mild headache) as Emergency unless severe warning signs are present.
+- SELF-CARE GUIDANCE: When the condition is mild (such as common cold, mild viral illness, mild allergies, or mild food poisoning), include practical evidence-based self-care advice in "recommendedNextSteps" (e.g., get adequate rest, drink plenty of fluids, eat nutritious meals if tolerated, use OTC medicines only as appropriate according to label/doctor advice, monitor symptoms, seek medical care if symptoms worsen/do not improve).
+- For chronic or serious conditions, provide appropriate next steps and explain that treatment depends on medical evaluation. Do not claim to "cure" or recommend unsafe treatments.
+- Include "possibleConditions" ranked from most likely to least likely with percentage likelihoods.
+- Include 2-4 "redFlagSymptoms" and a specific "recommendedSpecialist" in the user's language.
 
-Respond ONLY with valid JSON in this schema (all human-readable text fields MUST be translated into the user's language):
+C. FOR INTENT "emergency_symptoms":
+- Set "urgencyLevel": "Emergency" and "isEmergency": true.
+- Provide urgent emergency guidance (Call 911 / Emergency Services immediately), emergency red flags, and set "recommendedSpecialist": "Emergency Department" in the user's language.
+
+Respond ONLY with valid JSON in this schema:
 {
-  "text": "Brief clinical summary of the symptom assessment in the user's language",
-  "urgencyLevel": "Low" | "Routine" | "Prompt" | "Emergency",
-  "assessmentConfidence": "High" | "Moderate" | "Low",
+  "intent": "general_conversation" | "language_request" | "medical_question" | "symptom_analysis" | "emergency_symptoms",
+  "text": "Your natural response, explanation, or clinical summary in the user's language",
+  "urgencyLevel": "Low" | "Routine" | "Prompt" | "Emergency" | null,
+  "assessmentConfidence": "High" | "Moderate" | "Low" | null,
   "isEmergency": boolean,
   "possibleConditions": [
     {
-      "name": "Condition name in the user's language",
+      "name": "Condition name",
       "likelihood": "High" | "Moderate" | "Low",
       "percentage": 88,
-      "reasoning": "Clinical reasoning in the user's language"
+      "reasoning": "Clinical reasoning"
     }
   ],
   "recommendedNextSteps": [
-    "Practical step 1 in the user's language",
-    "Practical step 2 in the user's language"
+    "Practical step or self-care advice"
   ],
   "redFlagSymptoms": [
-    "Warning sign 1 in the user's language",
-    "Warning sign 2 in the user's language"
+    "Warning sign requiring immediate care"
   ],
-  "recommendedSpecialist": "Specific Healthcare Professional Title in the user's language",
+  "recommendedSpecialist": "Specific Healthcare Professional Title or null",
   "followUpQuestions": [
-    "Follow-up question 1 in the user's language",
-    "Follow-up question 2 in the user's language"
+    "Follow-up question 1",
+    "Follow-up question 2"
   ]
 }
 `;
@@ -307,7 +309,18 @@ Respond ONLY with valid JSON in this schema (all human-readable text fields MUST
     });
 
     const parsedData = JSON.parse(response.text || '{}');
-    if (isEmergency) parsedData.isEmergency = true;
+    if (isEmergency && parsedData.intent !== 'general_conversation' && parsedData.intent !== 'language_request' && parsedData.intent !== 'medical_question') {
+      parsedData.isEmergency = true;
+      parsedData.urgencyLevel = 'Emergency';
+    }
+    if (parsedData.intent === 'general_conversation' || parsedData.intent === 'language_request' || parsedData.intent === 'medical_question') {
+      parsedData.isEmergency = false;
+      parsedData.urgencyLevel = null;
+      parsedData.possibleConditions = undefined;
+      parsedData.recommendedNextSteps = undefined;
+      parsedData.redFlagSymptoms = undefined;
+      parsedData.recommendedSpecialist = undefined;
+    }
     return res.json(parsedData);
 
   } catch (error: any) {
@@ -320,44 +333,163 @@ Respond ONLY with valid JSON in this schema (all human-readable text fields MUST
 function generateFallbackHealthAssistant(message: string, isEmergency: boolean) {
   const lower = message.toLowerCase().trim();
 
-  // Simple greetings
-  if (lower === 'hi' || lower === 'hello' || lower === 'hey' || lower.startsWith('hi ') || lower.startsWith('hello ')) {
+  // Detect script/language clues for fallback responses
+  const isHindi = /[\u0900-\u097F]/.test(message) || lower.includes('namaste') || lower.includes('bukhar') || lower.includes('sirdard') || lower.includes('hindi');
+  const isTelugu = /[\u0C00-\u0C7F]/.test(message) || lower.includes('namaskaram') || lower.includes('jwaram') || lower.includes('talanoppi') || lower.includes('telugu');
+  const isTamil = /[\u0B80-\u0BFF]/.test(message) || lower.includes('vanakkam') || lower.includes('kaichal') || lower.includes('tamil');
+  const isSpanish = lower.includes('hola') || lower.includes('fiebre') || lower.includes('dolor de cabeza') || lower.includes('gracias') || lower.includes('español') || lower.includes('spanish');
+  const isFrench = lower.includes('bonjour') || lower.includes('fièvre') || lower.includes('mal de tête') || lower.includes('merci') || lower.includes('français') || lower.includes('french');
+
+  // 1. INTENT: LANGUAGE REQUEST
+  if (lower.includes('speak in ') || lower.includes('reply in ') || lower.includes('answer in ') || lower.includes('talk in ') || lower.startsWith('in ') || lower.includes('हिंदी में') || lower.includes('తెలుగులో') || lower.includes('தமிழில்') || lower.includes('en español')) {
+    if (isHindi || lower.includes('hindi')) {
+      return {
+        intent: "language_request",
+        text: "नमस्ते! 🙏 मैं अब से **हिंदी (Hindi)** में बातचीत करूँगा।\n\nआज मैं आपके स्वास्थ्य या लक्षणों के बारे में कैसे सहायता कर सकता हूँ?",
+        isEmergency: false
+      };
+    }
+    if (isTelugu || lower.includes('telugu')) {
+      return {
+        intent: "language_request",
+        text: "నమస్కారం! 🙏 నేను ఇకపై **తెలుగు (Telugu)** లో సమాధానం ఇస్తాను.\n\nఈ రోజు మీ ఆరోగ్య పరంగా నేను ఎలా సహాయపడగలను?",
+        isEmergency: false
+      };
+    }
+    if (isTamil || lower.includes('tamil')) {
+      return {
+        intent: "language_request",
+        text: "வணக்கம்! 🙏 இனி நான் **தமிழில் (Tamil)** பதிலளிப்பேன்.\n\nஇன்று உங்கள் ஆரோக்கியத்திற்கு நான் எவ்வாறு உதவ முடியும்?",
+        isEmergency: false
+      };
+    }
+    if (isSpanish || lower.includes('spanish') || lower.includes('español')) {
+      return {
+        intent: "language_request",
+        text: "¡Hola! 🙏 Con gusto responderé en **Español (Spanish)**.\n\n¿Cómo puedo ayudarte hoy con tus preguntas de salud o síntomas?",
+        isEmergency: false
+      };
+    }
+    if (isFrench || lower.includes('french') || lower.includes('français')) {
+      return {
+        intent: "language_request",
+        text: "Bonjour ! 🙏 Je répondrai désormais en **Français (French)**.\n\nComment puis-je vous aider aujourd'hui avec votre santé ?",
+        isEmergency: false
+      };
+    }
     return {
+      intent: "language_request",
+      text: "Hello! 🙏 I have noted your preferred language. How can I assist you with your health today? You can describe any symptoms or ask general medical questions.",
+      isEmergency: false
+    };
+  }
+
+  // 2. INTENT: GENERAL CONVERSATION (Greetings, thanks, jokes, polite chatter without symptom keywords)
+  const symptomKeywords = ['fever', 'cough', 'pain', 'headache', 'stomach', 'vomit', 'dizzy', 'hurt', 'sick', 'bukhar', 'sirdard', 'jwaram', 'talanoppi', 'fiebre', 'dolor'];
+  const hasSymptomKeyword = symptomKeywords.some(kw => lower.includes(kw));
+
+  if (!hasSymptomKeyword && (
+    lower === 'hi' || lower === 'hello' || lower === 'hey' || lower.startsWith('hi ') || lower.startsWith('hello ') ||
+    lower.includes('good morning') || lower.includes('good evening') || lower.includes('good afternoon') ||
+    lower.includes('how are you') || lower.includes('who are you') || lower.includes('what can you do') ||
+    lower.includes('thank') || lower.includes('thanks') || lower.includes('bye') || lower.includes('goodbye') ||
+    lower.includes('tell me a joke') || lower.includes('joke') ||
+    lower.includes('नमस्ते') || lower.includes('हेलो') || lower.includes('నమస్కారం') || lower.includes('హలో') ||
+    lower.includes('hola') || lower.includes('bonjour')
+  )) {
+    if (lower.includes('joke')) {
+      return {
+        intent: "general_conversation",
+        text: "Why did the germ cross the microscope? To get to the other slide! 😄\n\nOn a serious note, I'm here to help you with any health questions or symptoms. How can I assist you today?",
+        isEmergency: false
+      };
+    }
+    if (lower.includes('how are you')) {
+      return {
+        intent: "general_conversation",
+        text: "I'm doing well, thank you for asking! 😊\n\nI'm ready to help answer your health questions, explain symptoms, or share evidence-based medical information. How can I assist you today?",
+        isEmergency: false
+      };
+    }
+    if (lower.includes('thank')) {
+      return {
+        intent: "general_conversation",
+        text: "You're very welcome! 😊 I'm glad I could provide helpful information. Feel free to reach out anytime if you have more health questions. Wishing you good health!",
+        isEmergency: false
+      };
+    }
+    if (lower.includes('bye') || lower.includes('goodbye')) {
+      return {
+        intent: "general_conversation",
+        text: "Goodbye! Take care and stay healthy. 👋 Feel free to return whenever you need health guidance!",
+        isEmergency: false
+      };
+    }
+    if (isHindi) {
+      return {
+        intent: "general_conversation",
+        text: "नमस्ते! 👋 मैं **TruthRx AI Health Assistant** हूँ।\n\nआज मैं आपके स्वास्थ्य संबंधी प्रश्नों में कैसे मदद कर सकता हूँ? आप अपने लक्षणों का वर्णन कर सकते हैं या कोई भी सामान्य चिकित्सा प्रश्न पूछ सकते हैं।",
+        isEmergency: false
+      };
+    }
+    if (isTelugu) {
+      return {
+        intent: "general_conversation",
+        text: "నమస్కారం! 👋 నేను **TruthRx AI Health Assistant** ని.\n\nఈ రోజు మీ ఆరోగ్య పరంగా నేను ఎలా సహాయపడగలను? మీ లక్షణాలను వివరించవచ్చు లేదా ఆరోగ్య సంబంధిత ప్రశ్నలు అడగవచ్చు.",
+        isEmergency: false
+      };
+    }
+    if (isSpanish) {
+      return {
+        intent: "general_conversation",
+        text: "¡Hola! 👋 Soy **TruthRx AI Health Assistant**.\n\n¿Cómo puedo ayudarte hoy con tu salud? Puedes describir cualquier síntoma o hacer preguntas médicas generales.",
+        isEmergency: false
+      };
+    }
+    return {
+      intent: "general_conversation",
       text: "Hello! 👋 I'm **TruthRx AI Health Assistant**.\n\nHow can I help you with your health today? You can describe any symptoms you're experiencing or ask general medical questions.",
-      isEmergency: false,
-      followUpQuestions: [
-        "What causes tension headaches?",
-        "How do I know if my fever needs a doctor?",
-        "What are the early signs of diabetes?"
-      ]
+      isEmergency: false
     };
   }
 
-  if (lower.includes('how are you')) {
+  // 3. INTENT: MEDICAL QUESTION (General knowledge queries without active personal symptom pronouns)
+  const isQuestionPrefix = lower.startsWith('what is ') || lower.startsWith('what are ') || lower.startsWith('what causes ') || lower.startsWith('why do ') || lower.startsWith('why does ') || lower.startsWith('how does ') || lower.startsWith('explain ') || lower.startsWith('define ');
+  const hasPersonalPronoun = lower.includes('i have') || lower.includes('my ') || lower.includes('i am') || lower.includes('i feel') || lower.includes('experiencing') || lower.includes('मुझे') || lower.includes('నాకు');
+
+  if (isQuestionPrefix && !hasPersonalPronoun) {
+    if (lower.includes('diabetes')) {
+      return {
+        intent: "medical_question",
+        text: "### What is Diabetes?\n\n**Diabetes mellitus** is a chronic condition that occurs when blood glucose (sugar) levels remain elevated over time. The body either does not produce enough insulin (Type 1) or cannot use insulin effectively (Type 2).\n\n#### Key Signs to Watch For:\n- Excessive thirst and frequent urination\n- Unexplained fatigue or weight loss\n- Blurred vision\n\n*If you would like me to assess any symptoms you are experiencing, please describe them!*",
+        isEmergency: false
+      };
+    }
+    if (lower.includes('fever')) {
+      return {
+        intent: "medical_question",
+        text: "### What Causes Fever?\n\nA **fever** is a temporary increase in body temperature, usually part of the body's natural immune response to an infection.\n\n#### Common Causes:\n- **Viral infections** (common cold, flu, COVID-19)\n- **Bacterial infections** (strep throat, urinary tract infections)\n- **Inflammation or immunizations**\n\n*Let me know if you or someone else currently has a fever so I can help assess it!*",
+        isEmergency: false
+      };
+    }
+    if (lower.includes('hypertension') || lower.includes('blood pressure')) {
+      return {
+        intent: "medical_question",
+        text: "### What is Hypertension?\n\n**Hypertension (High Blood Pressure)** is a condition where the force of blood against artery walls is consistently too high (typically 130/80 mmHg or above). Managing it through lifestyle changes and prescribed medication reduces the risk of heart disease and stroke.\n\n*Let me know if you have questions about specific blood pressure readings or symptoms!*",
+        isEmergency: false
+      };
+    }
     return {
-      text: "I'm doing well, thank you for asking! 😊\n\nI'm ready to help answer your health questions, explain symptoms, or share evidence-based medical information. How can I assist you today?",
-      isEmergency: false,
-      followUpQuestions: [
-        "What are common symptoms of seasonal allergies?",
-        "How much sleep should an adult get daily?"
-      ]
+      intent: "medical_question",
+      text: `### Medical Overview: ${message}\n\nThis medical topic involves physiological and clinical mechanisms studied in evidence-based healthcare. Regular screenings and consultations with a qualified healthcare provider help provide personalized guidance.\n\n*If you are experiencing any symptoms related to this topic, please describe them and I can provide a detailed symptom assessment!*`,
+      isEmergency: false
     };
   }
 
-  if (lower.includes('thank') || lower.includes('thanks')) {
+  // 4. INTENT: EMERGENCY SYMPTOMS
+  if (isEmergency || lower.includes('chest pain') || lower.includes('stroke') || lower.includes('shortness of breath') || lower.includes('can\'t breathe') || lower.includes('heavy bleeding')) {
     return {
-      text: "You're very welcome! I'm glad I could provide helpful information. Please feel free to reach out if you have any more health questions in the future. Wishing you good health!",
-      isEmergency: false,
-      followUpQuestions: [
-        "What are key preventive health screenings?",
-        "How can I improve my sleep quality?"
-      ]
-    };
-  }
-
-  // Emergency symptoms
-  if (isEmergency || lower.includes('chest pain') || lower.includes('stroke') || lower.includes('shortness of breath')) {
-    return {
+      intent: "emergency_symptoms",
       text: "### Urgent Medical Assessment: High Risk Symptoms\n\nThe symptoms described—such as severe chest pain, acute respiratory distress, or sudden neurological weakness—indicate a potential high-risk condition requiring immediate emergency evaluation.",
       isEmergency: true,
       urgencyLevel: "Emergency",
@@ -387,9 +519,99 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
     };
   }
 
+  // 5. INTENT: SYMPTOM ANALYSIS (Default for active symptom descriptions in detected language)
+  // Hindi symptom fallback
+  if (isHindi) {
+    return {
+      intent: "symptom_analysis",
+      text: `### स्वास्थ्य मार्गदर्शन एवं लक्षण मूल्यांकन\n\n**TruthRx AI Health Assistant** से संपर्क करने के लिए धन्यवाद: *"${message}"*.\n\nनैदानिक सर्वसम्मति के आधार पर, यहाँ एक गैर-निदानास्पद शैक्षणिक अवलोकन है:`,
+      isEmergency: false,
+      urgencyLevel: "Low",
+      assessmentConfidence: "Moderate",
+      possibleConditions: [
+        { name: "सामान्य स्व-सीमित कारण (वायरल / कार्यात्मक)", likelihood: "High", percentage: 72, reasoning: "हल्के लक्षणों का सबसे सामान्य कारण।" },
+        { name: "पर्यावरणीय या जीवनशैली का तनाव", likelihood: "Moderate", percentage: 48, reasoning: "नींद की कमी, तनाव या खान-पान में बदलाव।" }
+      ],
+      recommendedNextSteps: [
+        "पर्याप्त पानी पीएं और दिन में 7-8 घंटे आराम करें (Self-care advice)",
+        "अगले 24-48 घंटों तक अपने लक्षणों की निगरानी करें",
+        "यदि लक्षण बने रहते हैं या बिगड़ते हैं तो डॉक्टर से परामर्श लें"
+      ],
+      redFlagSymptoms: [
+        "अचानक तेज बुखार जो दवा से ठीक न हो",
+        "सांस लेने में तकलीफ या सीने में दर्द",
+        "शरीर में अचानक बहुत तेज दर्द होना"
+      ],
+      recommendedSpecialist: "सामान्य चिकित्सक (General Physician)",
+      followUpQuestions: [
+        "आप इन लक्षणों को कितने समय से महसूस कर रहे हैं?",
+        "क्या आप वर्तमान में कोई दवाएं ले रहे हैं?"
+      ]
+    };
+  }
+
+  // Telugu symptom fallback
+  if (isTelugu) {
+    return {
+      intent: "symptom_analysis",
+      text: `### ఆరోగ్య మార్గదర్శకత్వం & లక్షణాల విశ్లేషణ\n\n**TruthRx AI Health Assistant** ని సంప్రదించినందుకు ధన్యవాదాలు: *"${message}"*.\n\nమీరు తెలిపిన సమాచారం ఆధారంగా విశ్లేషణ:`,
+      isEmergency: false,
+      urgencyLevel: "Low",
+      assessmentConfidence: "Moderate",
+      possibleConditions: [
+        { name: "సాధారణ వైరల్ లేదా తాత్కాలిక సమస్య", likelihood: "High", percentage: 72, reasoning: "తక్కువ వ్యవధిలో తగ్గే సాధారణ కారణం." },
+        { name: "అలసట లేదా జీవనశైలి ఒత్తిడి", likelihood: "Moderate", percentage: 48, reasoning: "నిద్రలేమి లేదా ఒత్తిడి వలన కలిగే అలసట." }
+      ],
+      recommendedNextSteps: [
+        "సరిపడా మంచి నీరు తాగి విశ్రాంతి తీసుకోండి (Self-care advice)",
+        "తరువాతి 24-48 గంటలు లక్షణాలను గమనించండి",
+        "లక్షణాలు తగ్గకపోతే వైద్యుడిని సంప్రదించండి"
+      ],
+      redFlagSymptoms: [
+        "తీవ్రమైన ఛాతీ నొప్పి లేదా శ్వాస తీసుకోవడంలో ఇబ్బంది",
+        "అకస్మాత్తుగా తీవ్రమైన కళ్ళు తిరగడం లేదా స్పృహ తప్పడం"
+      ],
+      recommendedSpecialist: "జనరల్ ఫిజీషియన్ (General Physician)",
+      followUpQuestions: [
+        "ఈ లక్షణాలు ఎన్ని రోజుల నుండి ఉన్నాయి?",
+        "మీరు ఏవైనా ఇతర మందులు వాడుతున్నారా?"
+      ]
+    };
+  }
+
+  // Spanish symptom fallback
+  if (isSpanish) {
+    return {
+      intent: "symptom_analysis",
+      text: `### Orientación Médica y Evaluación de Síntomas\n\nGracias por consultar a **TruthRx AI Health Assistant** sobre: *"${message}"*.\n\nBasado en el consenso clínico, aquí tiene un resumen educativo:`,
+      isEmergency: false,
+      urgencyLevel: "Low",
+      assessmentConfidence: "Moderate",
+      possibleConditions: [
+        { name: "Etiología autolimitada común (Viral / Funcional)", likelihood: "High", percentage: 72, reasoning: "Causa frecuente de síntomas leves o moderados." },
+        { name: "Estrés de estilo de vida o ambiental", likelihood: "Moderate", percentage: 48, reasoning: "Falta de sueño, estrés agudo o cambios en la dieta." }
+      ],
+      recommendedNextSteps: [
+        "Mantenga una buena hidratación y descanse de 7 a 8 horas",
+        "Monitoree los síntomas durante las próximas 24 a 48 horas",
+        "Consulte a un médico si los síntomas persisten o empeoran"
+      ],
+      redFlagSymptoms: [
+        "Fiebre alta inexplicable que no responde a medicamentos",
+        "Dificultad para respirar o dolor severo en el pecho"
+      ],
+      recommendedSpecialist: "Médico General (General Physician)",
+      followUpQuestions: [
+        "¿Cuánto tiempo lleva experimentando estos síntomas?",
+        "¿Está tomando algún medicamento actualmente?"
+      ]
+    };
+  }
+
   // Headache / Migraine
   if (lower.includes('headache') || lower.includes('migraine') || lower.includes('head pain')) {
     return {
+      intent: "symptom_analysis",
       text: "### Symptom Assessment: Head Pain / Headache\n\nBased on your reported symptoms, here is a clinical breakdown of possible causes ranked by likelihood:",
       isEmergency: false,
       urgencyLevel: "Low",
@@ -400,11 +622,11 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
         { name: "Dehydration or Sinus Pressure", likelihood: "Moderate", percentage: 38, reasoning: "Frequently occurs with insufficient fluid intake or facial sinus inflammation." }
       ],
       recommendedNextSteps: [
-        "Rest in a quiet, dark, and cool room",
-        "Drink 500ml of water and stay well-hydrated throughout the day",
+        "Get adequate rest in a quiet, dark, and cool room (Self-care advice)",
+        "Drink plenty of fluids (500ml of water) and stay well-hydrated throughout the day",
         "Apply a cool compress to your forehead or warm wrap to the neck muscles",
-        "Avoid prolonged screen time and loud environments",
-        "Track headache frequency and triggers in a daily journal"
+        "Use over-the-counter pain relief only according to the label or a doctor's advice",
+        "Monitor your symptoms and seek medical care if worsening or not improving"
       ],
       redFlagSymptoms: [
         "Sudden, explosive 'thunderclap' headache reaching maximum intensity in seconds",
@@ -421,9 +643,10 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
     };
   }
 
-  // Diabetes / Blood Sugar
+  // Diabetes / Blood Sugar symptoms
   if (lower.includes('diabetes') || lower.includes('blood sugar') || lower.includes('glucose')) {
     return {
+      intent: "symptom_analysis",
       text: "### Medical Assessment: Glycemic & Metabolic Indicators\n\nElevated thirst, frequent urination, fatigue, or unexplained weight changes warrant a comprehensive metabolic evaluation.",
       isEmergency: false,
       urgencyLevel: "Routine",
@@ -452,8 +675,9 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
     };
   }
 
-  // Default general medical health assistant response
+  // Default English symptom analysis
   return {
+    intent: "symptom_analysis",
     text: `### Health Guidance & Symptom Assessment\n\nThank you for reaching out to **TruthRx AI Health Assistant** regarding: *"${message}"*.\n\nBased on clinical consensus, here is a non-diagnostic educational overview:`,
     isEmergency: false,
     urgencyLevel: "Low",
@@ -463,10 +687,12 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
       { name: "Environmental or Lifestyle Strain", likelihood: "Moderate", percentage: 48, reasoning: "Sleep deprivation, acute stress, or minor dietary changes." }
     ],
     recommendedNextSteps: [
-      "Ensure sufficient daily hydration and 7-8 hours of restful sleep",
-      "Monitor symptom progression, intensity, and duration over the next 24-48 hours",
-      "Maintain a balanced diet and avoid strenuous physical exertion if fatigued",
-      "Consult a qualified healthcare provider if symptoms persist or worsen"
+      "Get adequate rest and ensure 7-8 hours of restful sleep (Self-care advice)",
+      "Drink plenty of fluids throughout the day",
+      "Eat nutritious meals if tolerated and avoid strenuous physical exertion",
+      "Use over-the-counter medicines only as appropriate and according to label/doctor advice",
+      "Monitor symptom progression over the next 24-48 hours",
+      "Seek medical care if symptoms worsen or do not improve"
     ],
     redFlagSymptoms: [
       "Unexplained high fever unresponsive to standard medication",
