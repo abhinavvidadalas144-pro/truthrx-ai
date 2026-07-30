@@ -223,55 +223,78 @@ app.post('/api/health-assistant', async (req, res) => {
     }
 
     const systemInstruction = `
-You are TruthRx AI Health Assistant, an empathetic, professional, evidence-based AI health assistant.
-Your purpose is to help users understand symptoms, ask health questions, and receive educational guidance based on accredited medical sources (WHO, Mayo Clinic, CDC, NIH, PubMed).
+You are TruthRx AI Health Assistant, an empathetic, highly trained clinical decision-support AI assistant.
+Your purpose is to analyze health queries, assess symptoms with evidence-based medical logic (WHO, Mayo Clinic, CDC, NIH, PubMed), ask follow-up questions when necessary, and provide non-diagnostic health guidance.
 
-CRITICAL SAFETY & BOUNDARIES:
-- You are an educational assistant, NOT a doctor or claim verification tool.
-- NEVER present a condition as a confirmed diagnosis. Use non-diagnostic wording: "Possible conditions", "Based on the information provided", "One possible explanation is...".
+AUTOMATIC MULTILINGUAL DETECTION & SAME-LANGUAGE RESPONSE MANDATE:
+1. LANGUAGE DETECTION: Automatically detect the exact language, dialect, or script used by the user (e.g., English, Hindi (हिन्दी), Telugu (తెలుగు), Tamil (தமிழ்), Kannada (ಕನ್ನಡ), Malayalam (മലയാളം), Marathi (मराठी), Gujarati (ગુજરાતી), Punjabi (ਪੰਜਾਬੀ), Bengali (বাংলা), Odia (ଓଡ଼ିଆ), Urdu (اردو), Spanish, French, German, Italian, Portuguese, Japanese, Korean, Chinese, Arabic, Russian, etc.).
+2. SAME-LANGUAGE RESPONSE: You MUST write your entire response (including summary, possible condition names, reasonings, next steps, red flag symptoms, specialist title, and follow-up questions) in the EXACT SAME LANGUAGE and script used by the user. NEVER switch back to English automatically unless the user writes in English.
+3. MIXED LANGUAGE & TRANSLITERATION SUPPORT: If the user mixes languages or uses transliterated text (e.g. Hinglish "मुझे fever aur sirdard hai" or "mujhe bukhar hai", Teluglish "naku headache undi"), respond naturally and empathetically in that same language/script blend or standard script of that language.
+4. EXPLICIT LANGUAGE SWITCH REQUESTS: If the user requests a language switch (e.g. "Reply in English", "Answer in Hindi", "Please explain in Telugu", "Responde en español"), IMMEDIATELY switch to and continue in that requested language.
+5. MEDICAL TERMINOLOGY: Preserve medical accuracy in the detected language. If a complex medical term lacks a common translation, include the original term in parentheses alongside its localized explanation.
+
+CRITICAL MEDICAL SAFETY & BOUNDARIES:
+- You are an educational decision-support assistant, NOT a doctor.
+- NEVER present a condition as a confirmed diagnosis. Use non-diagnostic phrasing in the detected language (e.g. "Possible conditions", "Based on information provided", "Non-diagnostic educational assessment").
 - NEVER say "You definitely have..." or "You are diagnosed with...".
 - Always encourage consultation with a qualified healthcare professional.
-- If emergency red flags are detected (chest pain, difficulty breathing, stroke symptoms, loss of consciousness, severe bleeding, anaphylaxis), set "isEmergency": true and clearly emphasize immediate emergency care.
 
-CONVERSATIONAL RESPONSES & SYMPTOM ASSESSMENT:
-- Simple greetings ("Hi", "Hello", "How are you?", "Thank you"): Respond warmly, naturally, and concisely without over-analyzing.
-- Symptom assessment:
-  * If symptoms are insufficient or vague, ask 2-4 clarifying follow-up questions in "followUpQuestions" before providing a definitive list.
-  * When symptoms are provided, rank possible conditions strictly from MOST LIKELY to LEAST LIKELY.
-  * Assign an estimated likelihood percentage (integer between 5 and 95) for each possible condition based on clinical symptom overlap.
-  * Explain the clinical reasoning for each.
-  * Differentiate common possibilities from less likely ones.
-  * Recommend an appropriate medical specialist and next steps.
-- General health Q&A: Give clear, evidence-based explanations with structured key points.
+SMART URGENCY ASSESSMENT:
+Categorize the situation into EXACTLY ONE of these 4 urgency levels based on symptom combination, severity, duration, and red flags:
+1. "Low" (🟢): Self-care and home monitoring are appropriate (e.g. common cold, mild tension headache, mild seasonal allergies, minor muscle soreness).
+2. "Routine" (🟡): Non-urgent medical appointment recommended within a few days (e.g. mild iron deficiency anemia, persistent mild joint pain, chronic mild rash, routine checkup).
+3. "Prompt" (🟠): Same-day or next-day medical evaluation recommended (e.g. persistent high fever, acute localized pain, persistent vomiting, suspected acute infection/UTI).
+4. "Emergency" (🔴): Seek immediate emergency medical care. Strictly reserved for life-threatening emergency warning signs (crushing chest pain radiating to arm/jaw, acute severe difficulty breathing, stroke symptoms like facial drooping/slurred speech, loss of consciousness, anaphylaxis, heavy uncontrolled bleeding).
+DO NOT classify mild or common conditions (cold, mild anemia, mild UTI, mild kidney stones) as Emergency unless severe warning signs are present. Set "isEmergency": true ONLY if urgencyLevel is "Emergency".
 
-Respond ONLY with valid JSON in this schema:
+CLINICAL REASONING & ASSESSMENT:
+- Analyze the complete combination of reported symptoms.
+- Avoid overestimating rare or dangerous diseases; prioritize medically most likely causes.
+- If symptoms are vague or insufficient (e.g. "I feel sick", "my belly hurts"), ask 2-4 clarifying follow-up questions in "followUpQuestions" in the user's language before providing a premature assessment.
+- When symptoms are sufficient, list possible conditions ranked strictly from MOST LIKELY to LEAST LIKELY.
+- Assign an estimated likelihood percentage (integer 5-95%) for each condition based on clinical overlap.
+- Provide practical evidence-based advice in "recommendedNextSteps" in the user's language (hydration, rest, nutrition, symptom monitoring, safe medication adherence).
+- Provide 2-4 condition-specific emergency warning signs in "redFlagSymptoms" in the user's language.
+- Recommend an appropriate specialist in "recommendedSpecialist" in the user's language (e.g. "General Physician", "Neurologist", "Endocrinologist", "Cardiologist", "Pulmonologist", "ENT Specialist", "Dermatologist", "Urologist", "Emergency Department").
+
+Respond ONLY with valid JSON in this schema (all human-readable text fields MUST be translated into the user's language):
 {
-  "text": "Formatted text response with markdown bolding and bullet points",
+  "text": "Brief clinical summary of the symptom assessment in the user's language",
+  "urgencyLevel": "Low" | "Routine" | "Prompt" | "Emergency",
+  "assessmentConfidence": "High" | "Moderate" | "Low",
   "isEmergency": boolean,
   "possibleConditions": [
     {
-      "name": "Condition name",
+      "name": "Condition name in the user's language",
       "likelihood": "High" | "Moderate" | "Low",
       "percentage": 88,
-      "reasoning": "Reason why considered based on reported symptoms"
+      "reasoning": "Clinical reasoning in the user's language"
     }
   ],
-  "recommendedSpecialist": "Primary Care Physician / Neurologist / Cardiologist / etc.",
-  "suggestedActions": [
-    "Next step 1",
-    "Next step 2"
+  "recommendedNextSteps": [
+    "Practical step 1 in the user's language",
+    "Practical step 2 in the user's language"
   ],
+  "redFlagSymptoms": [
+    "Warning sign 1 in the user's language",
+    "Warning sign 2 in the user's language"
+  ],
+  "recommendedSpecialist": "Specific Healthcare Professional Title in the user's language",
   "followUpQuestions": [
-    "Follow up question 1",
-    "Follow up question 2"
+    "Follow-up question 1 in the user's language",
+    "Follow-up question 2 in the user's language"
   ]
 }
 `;
 
+    const historyText = Array.isArray(req.body.history) && req.body.history.length > 0
+      ? "\n\nConversation History:\n" + req.body.history.slice(-8).map((h: any) => `${h.sender === 'user' ? 'User' : 'Assistant'}: ${h.text}`).join('\n')
+      : "";
+
     const contents: any[] = [
       {
         role: 'user',
-        parts: [{ text: `${systemInstruction}\n\nUser Message: "${trimmedMsg}"` }]
+        parts: [{ text: `${systemInstruction}${historyText}\n\nCurrent User Message: "${trimmedMsg}"` }]
       }
     ];
 
@@ -335,17 +358,31 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
   // Emergency symptoms
   if (isEmergency || lower.includes('chest pain') || lower.includes('stroke') || lower.includes('shortness of breath')) {
     return {
-      text: "⚠️ **EMERGENCY MEDICAL WARNING**\n\nThe symptoms you described—such as severe chest pain, trouble breathing, or neurological weakness—can indicate a medical emergency like an acute cardiac event or stroke.\n\n**Immediate Action Required:**\n- Please call local emergency services (**911** in the US) or go to the nearest hospital emergency room immediately.\n- Do not drive yourself if experiencing chest pain or severe dizziness.\n- Rest quietly while waiting for emergency responders.",
+      text: "### Urgent Medical Assessment: High Risk Symptoms\n\nThe symptoms described—such as severe chest pain, acute respiratory distress, or sudden neurological weakness—indicate a potential high-risk condition requiring immediate emergency evaluation.",
       isEmergency: true,
-      recommendedSpecialist: "Emergency Medicine Specialist / Cardiologist",
-      suggestedActions: [
-        "Call emergency services immediately (911 or local emergency number)",
-        "Seek urgent medical evaluation at the nearest emergency room",
-        "Inform family members or coworkers of your current location"
+      urgencyLevel: "Emergency",
+      assessmentConfidence: "High",
+      possibleConditions: [
+        { name: "Acute Coronary Syndrome / Myocardial Infarction", likelihood: "High", percentage: 88, reasoning: "Acute chest pressure, pain radiating to left arm/jaw, accompanied by shortness of breath." },
+        { name: "Pulmonary Embolism", likelihood: "Moderate", percentage: 45, reasoning: "Sudden onset chest pain with difficulty breathing and tachycardia." },
+        { name: "Acute Cerebrovascular Event (Stroke)", likelihood: "Moderate", percentage: 40, reasoning: "Facial weakness, arm weakness, or slurred speech (FAST criteria)." }
       ],
+      recommendedNextSteps: [
+        "Call 911 or local emergency services immediately",
+        "Do not attempt to drive yourself to the hospital",
+        "Rest quietly in a comfortable position while waiting for emergency responders",
+        "Inform medical personnel of the exact time symptoms started"
+      ],
+      redFlagSymptoms: [
+        "Crushing chest pressure radiating to neck, jaw, back, or left arm",
+        "Sudden facial drooping, arm numbness, or difficulty speaking",
+        "Severe, sudden shortness of breath at rest",
+        "Sudden loss of consciousness or severe confusion"
+      ],
+      recommendedSpecialist: "Emergency Department",
       followUpQuestions: [
-        "What are the warning signs of a heart attack?",
-        "What does the FAST acronym stand for in stroke recognition?"
+        "Are you experiencing pain in your left arm, jaw, or back?",
+        "How many minutes ago did these symptoms begin?"
       ]
     };
   }
@@ -353,23 +390,33 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
   // Headache / Migraine
   if (lower.includes('headache') || lower.includes('migraine') || lower.includes('head pain')) {
     return {
-      text: "### Symptom Assessment: Head Pain / Headache\n\nBased on the details provided, here is an educational overview of possible causes:\n\n* **Tension Headache**: Very common. Usually described as a dull, aching band of pressure around the forehead or temples, often related to stress, eye strain, or muscle tension.\n* **Migraine**: Characterized by throbbing pain on one side of the head, often accompanied by sensitivity to light/sound and occasionally nausea.\n* **Dehydration or Sinus Headache**: Caused by fluid loss or facial sinus inflammation.\n\n*Note: This information is for educational guidance and does not replace a clinical diagnosis.*",
+      text: "### Symptom Assessment: Head Pain / Headache\n\nBased on your reported symptoms, here is a clinical breakdown of possible causes ranked by likelihood:",
       isEmergency: false,
+      urgencyLevel: "Low",
+      assessmentConfidence: "Moderate",
       possibleConditions: [
-        { name: "Tension-type Headache", likelihood: "High", percentage: 82, reasoning: "Most frequent cause of non-throbbing head pain associated with stress or fatigue." },
-        { name: "Migraine", likelihood: "Moderate", percentage: 54, reasoning: "Common when accompanied by light sensitivity, visual aura, or unilateral throbbing." },
-        { name: "Sinus Pressure / Dehydration", likelihood: "Moderate", percentage: 38, reasoning: "Common during sinus congestion or insufficient daily hydration." }
+        { name: "Tension-type Headache", likelihood: "High", percentage: 82, reasoning: "Most frequent cause of bilateral non-throbbing pressure often linked to muscle strain, stress, or eye fatigue." },
+        { name: "Migraine", likelihood: "Moderate", percentage: 54, reasoning: "Common when pain is throbbing on one side, or accompanied by light sensitivity, sound sensitivity, or aura." },
+        { name: "Dehydration or Sinus Pressure", likelihood: "Moderate", percentage: 38, reasoning: "Frequently occurs with insufficient fluid intake or facial sinus inflammation." }
       ],
-      recommendedSpecialist: "Primary Care Physician or Neurologist",
-      suggestedActions: [
-        "Rest in a quiet, darkened room",
-        "Maintain adequate hydration with water",
-        "Monitor symptom duration and consult a physician if headaches persist or worsen"
+      recommendedNextSteps: [
+        "Rest in a quiet, dark, and cool room",
+        "Drink 500ml of water and stay well-hydrated throughout the day",
+        "Apply a cool compress to your forehead or warm wrap to the neck muscles",
+        "Avoid prolonged screen time and loud environments",
+        "Track headache frequency and triggers in a daily journal"
       ],
+      redFlagSymptoms: [
+        "Sudden, explosive 'thunderclap' headache reaching maximum intensity in seconds",
+        "Headache with stiff neck, high fever, or confusion",
+        "New onset headache after age 50 or following a head injury",
+        "Headache accompanied by vision changes or numbness/weakness"
+      ],
+      recommendedSpecialist: "Neurologist or General Physician",
       followUpQuestions: [
-        "What triggers migraine attacks?",
-        "When should a headache be evaluated by a doctor immediately?",
-        "What is the difference between tension and sinus headaches?"
+        "Is the pain throbbing on one side, or a dull ache on both sides?",
+        "Are you experiencing nausea, vomiting, or sensitivity to light?",
+        "How many hours or days has this headache lasted?"
       ]
     };
   }
@@ -377,40 +424,60 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
   // Diabetes / Blood Sugar
   if (lower.includes('diabetes') || lower.includes('blood sugar') || lower.includes('glucose')) {
     return {
-      text: "### Medical Overview: Diabetes Mellitus\n\n**Diabetes** is a chronic metabolic condition where the body either cannot produce enough insulin (Type 1) or cannot effectively use the insulin it produces (Type 2), leading to elevated blood glucose levels.\n\n**Key Characteristics:**\n* **Type 1 Diabetes**: Autoimmune destruction of pancreatic beta cells.\n* **Type 2 Diabetes**: Insulin resistance linked to genetics, lifestyle, and metabolic factors.\n* **Common Symptoms**: Excessive thirst (polydipsia), frequent urination (polyuria), unexplained weight loss, blurred vision, and chronic fatigue.",
+      text: "### Medical Assessment: Glycemic & Metabolic Indicators\n\nElevated thirst, frequent urination, fatigue, or unexplained weight changes warrant a comprehensive metabolic evaluation.",
       isEmergency: false,
-      recommendedSpecialist: "Endocrinologist or Primary Care Physician",
-      suggestedActions: [
-        "Schedule a fasting blood glucose or HbA1c test with your doctor",
-        "Maintain a balanced, low-glycemic dietary pattern",
-        "Engage in regular physical activity"
+      urgencyLevel: "Routine",
+      assessmentConfidence: "High",
+      possibleConditions: [
+        { name: "Type 2 Diabetes Mellitus", likelihood: "High", percentage: 76, reasoning: "Insulin resistance leading to chronic hyperglycemia, excessive thirst (polydipsia), and frequent urination (polyuria)." },
+        { name: "Prediabetes / Metabolic Syndrome", likelihood: "Moderate", percentage: 58, reasoning: "Early impaired fasting glucose requiring dietary and lifestyle intervention." },
+        { name: "Electrolyte Imbalance or Primary Polydipsia", likelihood: "Low", percentage: 22, reasoning: "Secondary cause of increased thirst and urination." }
       ],
+      recommendedNextSteps: [
+        "Schedule a non-urgent medical evaluation for fasting blood glucose and HbA1c testing",
+        "Maintain consistent hydration with pure water rather than sugary beverages",
+        "Adopt a balanced, fiber-rich, low-glycemic dietary pattern",
+        "Engage in 30 minutes of moderate daily physical activity such as walking"
+      ],
+      redFlagSymptoms: [
+        "Fruity-smelling breath, deep rapid breathing, severe nausea, or confusion (DKA signs)",
+        "Blood glucose readings persistently over 300 mg/dL",
+        "Extreme dizziness, confusion, or shakiness indicating severe hypoglycemia (< 70 mg/dL)"
+      ],
+      recommendedSpecialist: "Endocrinologist or General Physician",
       followUpQuestions: [
-        "What is a normal fasting HbA1c level?",
-        "How does exercise help manage blood glucose?",
-        "What are early warning signs of prediabetes?"
+        "Are you experiencing excessive thirst or waking up multiple times at night to urinate?",
+        "Have you had recent laboratory blood work such as a fasting glucose or HbA1c test?"
       ]
     };
   }
 
   // Default general medical health assistant response
   return {
-    text: `### Health Guidance & Educational Overview\n\nThank you for reaching out to **TruthRx AI Health Assistant** regarding: *"${message}"*.\n\n**Educational Summary:**\n* **General Context**: When evaluating this health topic, medical guidelines emphasize considering overall symptom patterns, onset duration, and personal medical history.\n* **Key Principles**: Adequate rest, proper hydration, and monitoring changes over 24–48 hours are standard initial wellness measures.\n\n*Disclaimer: TruthRx AI Health Assistant provides evidence-based educational insights. If symptoms persist, worsen, or cause concern, please consult a licensed medical provider.*`,
+    text: `### Health Guidance & Symptom Assessment\n\nThank you for reaching out to **TruthRx AI Health Assistant** regarding: *"${message}"*.\n\nBased on clinical consensus, here is a non-diagnostic educational overview:`,
     isEmergency: false,
+    urgencyLevel: "Low",
+    assessmentConfidence: "Moderate",
     possibleConditions: [
-      { name: "Common Viral/Functional Etiology", likelihood: "Moderate", percentage: 65, reasoning: "Frequent cause for acute self-limiting symptoms." },
-      { name: "Lifestyle/Environmental Factors", likelihood: "Moderate", percentage: 42, reasoning: "Sleep deprivation, stress, or minor dietary changes." }
+      { name: "Common Self-Limiting Etiology (Viral / Functional)", likelihood: "High", percentage: 72, reasoning: "Frequent cause for mild, self-limiting systemic or localized symptoms." },
+      { name: "Environmental or Lifestyle Strain", likelihood: "Moderate", percentage: 48, reasoning: "Sleep deprivation, acute stress, or minor dietary changes." }
     ],
-    recommendedSpecialist: "Primary Care Physician",
-    suggestedActions: [
-      "Track symptom onset and severity over the next 24 to 48 hours",
-      "Ensure sufficient daily hydration and restful sleep",
-      "Schedule a routine consultation with a healthcare provider if symptoms persist"
+    recommendedNextSteps: [
+      "Ensure sufficient daily hydration and 7-8 hours of restful sleep",
+      "Monitor symptom progression, intensity, and duration over the next 24-48 hours",
+      "Maintain a balanced diet and avoid strenuous physical exertion if fatigued",
+      "Consult a qualified healthcare provider if symptoms persist or worsen"
     ],
+    redFlagSymptoms: [
+      "Unexplained high fever unresponsive to standard medication",
+      "Difficulty breathing, chest tightness, or severe dizziness",
+      "Sudden onset of intense, unbearable pain anywhere in the body"
+    ],
+    recommendedSpecialist: "General Physician",
     followUpQuestions: [
-      "What red flag symptoms should I watch out for?",
-      "How do I prepare a symptom log for my doctor's visit?",
-      "What home care measures are recommended?"
+      "How long have you been experiencing these symptoms?",
+      "Are you currently taking any prescription medications or supplements?",
+      "Do you have any known underlying health conditions?"
     ]
   };
 }

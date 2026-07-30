@@ -179,7 +179,11 @@ export const HealthAssistant: React.FC = () => {
         text: data.text || 'I apologize, I was unable to process your request at this moment. Please try again.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isEmergency: data.isEmergency || false,
+        urgencyLevel: data.urgencyLevel,
+        assessmentConfidence: data.assessmentConfidence,
         possibleConditions: data.possibleConditions,
+        recommendedNextSteps: data.recommendedNextSteps,
+        redFlagSymptoms: data.redFlagSymptoms,
         recommendedSpecialist: data.recommendedSpecialist,
         suggestedActions: data.suggestedActions,
         followUpQuestions: data.followUpQuestions,
@@ -404,17 +408,42 @@ export const HealthAssistant: React.FC = () => {
                     ) : (
                       <div className="space-y-3">
                         
-                        {/* Emergency Banner inside bubble */}
-                        {msg.isEmergency && (
-                          <div className="p-3.5 bg-red-500/10 border border-red-500/30 rounded-[10px] text-red-700 dark:text-red-300 flex items-start gap-3">
-                            <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5 animate-bounce" />
-                            <div>
-                              <p className="font-semibold text-[13px] uppercase tracking-wide mb-1">
-                                Emergency Medical Advisory
-                              </p>
-                              <p className="text-[13px] leading-relaxed">
-                                If you or someone around you is experiencing severe chest pain, extreme difficulty breathing, slurred speech, or loss of consciousness, please call <strong>911</strong> or go to the nearest emergency department immediately.
-                              </p>
+                        {/* Urgency Level Assessment Banner */}
+                        {(msg.urgencyLevel || msg.isEmergency) && (
+                          <div className={`p-3 rounded-[10px] border flex items-center justify-between gap-3 text-[13px] ${
+                            msg.urgencyLevel === 'Emergency' || msg.isEmergency
+                              ? 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'
+                              : msg.urgencyLevel === 'Prompt'
+                              ? 'bg-orange-500/10 border-orange-500/30 text-orange-800 dark:text-orange-300'
+                              : msg.urgencyLevel === 'Routine'
+                              ? 'bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300'
+                              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
+                          }`}>
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-[16px]">
+                                {msg.urgencyLevel === 'Emergency' || msg.isEmergency ? '🔴' : msg.urgencyLevel === 'Prompt' ? '🟠' : msg.urgencyLevel === 'Routine' ? '🟡' : '🟢'}
+                              </span>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold uppercase text-[11px] tracking-wide">
+                                    Urgency Level: {msg.urgencyLevel || 'Emergency'}
+                                  </span>
+                                  {msg.assessmentConfidence && (
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white/60 dark:bg-black/30 border border-current/20">
+                                      {msg.assessmentConfidence} Confidence
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[12px] opacity-90 mt-0.5">
+                                  {msg.urgencyLevel === 'Emergency' || msg.isEmergency
+                                    ? 'Seek immediate emergency medical care (Call 911 or visit ER).'
+                                    : msg.urgencyLevel === 'Prompt'
+                                    ? 'Same-day or next-day medical evaluation recommended.'
+                                    : msg.urgencyLevel === 'Routine'
+                                    ? 'Medical appointment recommended within the next few days.'
+                                    : 'Self-care and monitoring are appropriate.'}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -468,12 +497,44 @@ export const HealthAssistant: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Recommended Specialist Pill */}
+                        {/* Recommended Next Steps */}
+                        {((msg.recommendedNextSteps && msg.recommendedNextSteps.length > 0) || (msg.suggestedActions && msg.suggestedActions.length > 0)) && (
+                          <div className="mt-3 pt-3 border-t border-[#E5E7EB] dark:border-gray-800">
+                            <p className="text-[12px] font-semibold uppercase tracking-wider text-[#6B7280] dark:text-gray-400 mb-2">
+                              Recommended Next Steps
+                            </p>
+                            <ul className="space-y-1.5 text-[13px] text-[#374151] dark:text-gray-300">
+                              {(msg.recommendedNextSteps || msg.suggestedActions || []).map((step, sIdx) => (
+                                <li key={sIdx} className="flex items-start gap-2">
+                                  <span className="text-[#2563EB] dark:text-blue-400 font-bold">•</span>
+                                  <span>{step}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Red Flag Symptoms */}
+                        {msg.redFlagSymptoms && msg.redFlagSymptoms.length > 0 && (
+                          <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 rounded-[8px] text-[12px]">
+                            <p className="font-semibold text-red-700 dark:text-red-400 flex items-center gap-1.5 mb-1.5">
+                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                              <span>Seek urgent medical care immediately if you experience:</span>
+                            </p>
+                            <ul className="list-disc ml-5 space-y-1 text-red-700 dark:text-red-300">
+                              {msg.redFlagSymptoms.map((flag, fIdx) => (
+                                <li key={fIdx}>{flag}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Recommended Specialist / Healthcare Professional */}
                         {msg.recommendedSpecialist && (
                           <div className="mt-3 flex items-center gap-2 text-[12px] bg-blue-50 dark:bg-blue-950/30 text-[#2563EB] dark:text-blue-300 px-3 py-1.5 rounded-[8px] border border-blue-200 dark:border-blue-900/40 font-medium">
                             <Stethoscope className="w-3.5 h-3.5 shrink-0" />
                             <span>
-                              Recommended Specialist Evaluation: <strong>{msg.recommendedSpecialist}</strong>
+                              Recommended Healthcare Professional: <strong>{msg.recommendedSpecialist}</strong>
                             </span>
                           </div>
                         )}

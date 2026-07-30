@@ -6,12 +6,16 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
   isEmergency?: boolean;
+  urgencyLevel?: 'Low' | 'Routine' | 'Prompt' | 'Emergency';
+  assessmentConfidence?: 'High' | 'Moderate' | 'Low';
   possibleConditions?: Array<{
     name: string;
     likelihood: 'High' | 'Moderate' | 'Low';
     percentage?: number;
     reasoning: string;
   }>;
+  recommendedNextSteps?: string[];
+  redFlagSymptoms?: string[];
   recommendedSpecialist?: string;
   followUpQuestions?: string[];
   suggestedActions?: string[];
