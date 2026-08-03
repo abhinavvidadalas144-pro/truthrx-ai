@@ -17,7 +17,15 @@ import {
   ArrowRight,
   ShieldAlert,
   Info,
-  MessageSquare
+  MessageSquare,
+  History,
+  Maximize2,
+  Minimize2,
+  Search,
+  Trash2,
+  Edit3,
+  X,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChatMessage, ChatSession } from '../types';
