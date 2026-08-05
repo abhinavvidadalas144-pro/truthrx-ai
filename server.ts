@@ -58,8 +58,8 @@ const usersDatabase: ServerUser[] = [
 
 // Helper function to lazy-load Gemini client
 function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.GOOGLE_API_KEY;
+  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY' || apiKey.trim() === '') {
     return null;
   }
   return new GoogleGenAI({ apiKey });
@@ -300,28 +300,53 @@ Respond ONLY with valid JSON in this schema:
       }
     ];
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: contents,
-      config: {
-        responseMimeType: 'application/json',
-      },
-    });
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    let response: any = null;
+    let lastError: any = null;
 
-    const parsedData = JSON.parse(response.text || '{}');
-    if (isEmergency && parsedData.intent !== 'general_conversation' && parsedData.intent !== 'language_request' && parsedData.intent !== 'medical_question') {
-      parsedData.isEmergency = true;
-      parsedData.urgencyLevel = 'Emergency';
+    for (const modelName of modelsToTry) {
+      try {
+        response = await ai.models.generateContent({
+          model: modelName,
+          contents: contents,
+          config: {
+            responseMimeType: 'application/json',
+          },
+        });
+        if (response && response.text) {
+          break;
+        }
+      } catch (err) {
+        console.warn(`Model ${modelName} failed, attempting fallback model...`, err);
+        lastError = err;
+      }
     }
-    if (parsedData.intent === 'general_conversation' || parsedData.intent === 'language_request' || parsedData.intent === 'medical_question') {
-      parsedData.isEmergency = false;
-      parsedData.urgencyLevel = null;
-      parsedData.possibleConditions = undefined;
-      parsedData.recommendedNextSteps = undefined;
-      parsedData.redFlagSymptoms = undefined;
-      parsedData.recommendedSpecialist = undefined;
+
+    if (response && response.text) {
+      let cleanText = response.text.trim();
+      if (cleanText.startsWith('```json')) {
+        cleanText = cleanText.replace(/^```json\s*/i, '').replace(/\s*```$/, '');
+      } else if (cleanText.startsWith('```')) {
+        cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+
+      const parsedData = JSON.parse(cleanText || '{}');
+      if (isEmergency && parsedData.intent !== 'general_conversation' && parsedData.intent !== 'language_request' && parsedData.intent !== 'medical_question') {
+        parsedData.isEmergency = true;
+        parsedData.urgencyLevel = 'Emergency';
+      }
+      if (parsedData.intent === 'general_conversation' || parsedData.intent === 'language_request' || parsedData.intent === 'medical_question') {
+        parsedData.isEmergency = false;
+        parsedData.urgencyLevel = null;
+        parsedData.possibleConditions = undefined;
+        parsedData.recommendedNextSteps = undefined;
+        parsedData.redFlagSymptoms = undefined;
+        parsedData.recommendedSpecialist = undefined;
+      }
+      return res.json(parsedData);
     }
-    return res.json(parsedData);
+
+    throw lastError || new Error('No response generated from Gemini API');
 
   } catch (error: any) {
     console.error('Error in health assistant API:', error);
@@ -388,15 +413,15 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
   const symptomKeywords = ['fever', 'cough', 'pain', 'headache', 'stomach', 'vomit', 'dizzy', 'hurt', 'sick', 'bukhar', 'sirdard', 'jwaram', 'talanoppi', 'fiebre', 'dolor'];
   const hasSymptomKeyword = symptomKeywords.some(kw => lower.includes(kw));
 
-  if (!hasSymptomKeyword && (
-    lower === 'hi' || lower === 'hello' || lower === 'hey' || lower.startsWith('hi ') || lower.startsWith('hello ') ||
+  const isGreetingPattern = /\b(hi|hello|hey|greetings|howdy|hola|bonjour|namaste|vanakkam)\b/i.test(lower) ||
+    lower.startsWith('hi') || lower.startsWith('hello') || lower.startsWith('hey') ||
     lower.includes('good morning') || lower.includes('good evening') || lower.includes('good afternoon') ||
     lower.includes('how are you') || lower.includes('who are you') || lower.includes('what can you do') ||
     lower.includes('thank') || lower.includes('thanks') || lower.includes('bye') || lower.includes('goodbye') ||
     lower.includes('tell me a joke') || lower.includes('joke') ||
-    lower.includes('नमस्ते') || lower.includes('हेलो') || lower.includes('నమస్కారం') || lower.includes('హలో') ||
-    lower.includes('hola') || lower.includes('bonjour')
-  )) {
+    lower.includes('नमस्ते') || lower.includes('हेलो') || lower.includes('నమస్కారం') || lower.includes('హలో');
+
+  if (!hasSymptomKeyword && isGreetingPattern) {
     if (lower.includes('joke')) {
       return {
         intent: "general_conversation",
@@ -407,7 +432,7 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
     if (lower.includes('how are you')) {
       return {
         intent: "general_conversation",
-        text: "I'm doing well, thank you for asking! 😊\n\nI'm ready to help answer your health questions, explain symptoms, or share evidence-based medical information. How can I assist you today?",
+        text: "I'm doing well! 😊\n\nI'm TruthRx AI Health Assistant, ready to help answer your health questions, explain symptoms, or share evidence-based medical information. How can I assist you today?",
         isEmergency: false
       };
     }
@@ -524,7 +549,7 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
   if (isHindi) {
     return {
       intent: "symptom_analysis",
-      text: `### स्वास्थ्य मार्गदर्शन एवं लक्षण मूल्यांकन\n\n**TruthRx AI Health Assistant** से संपर्क करने के लिए धन्यवाद: *"${message}"*.\n\nनैदानिक सर्वसम्मति के आधार पर, यहाँ एक गैर-निदानास्पद शैक्षणिक अवलोकन है:`,
+      text: `### स्वास्थ्य मार्गदर्शन एवं लक्षण मूल्यांकन\n\nनैदानिक सर्वसम्मति के आधार पर, आपके द्वारा पूछे गए लक्षण/प्रश्न का शैक्षणिक अवलोकन:`,
       isEmergency: false,
       urgencyLevel: "Low",
       assessmentConfidence: "Moderate",
@@ -554,7 +579,7 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
   if (isTelugu) {
     return {
       intent: "symptom_analysis",
-      text: `### ఆరోగ్య మార్గదర్శకత్వం & లక్షణాల విశ్లేషణ\n\n**TruthRx AI Health Assistant** ని సంప్రదించినందుకు ధన్యవాదాలు: *"${message}"*.\n\nమీరు తెలిపిన సమాచారం ఆధారంగా విశ్లేషణ:`,
+      text: `### ఆరోగ్య మార్గదర్శకత్వం & లక్షణాల విశ్లేషణ\n\nసాక్ష్యాధారిత వైద్య సమాచారం ఆధారంగా విశ్లేషణ:`,
       isEmergency: false,
       urgencyLevel: "Low",
       assessmentConfidence: "Moderate",
@@ -583,7 +608,7 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
   if (isSpanish) {
     return {
       intent: "symptom_analysis",
-      text: `### Orientación Médica y Evaluación de Síntomas\n\nGracias por consultar a **TruthRx AI Health Assistant** sobre: *"${message}"*.\n\nBasado en el consenso clínico, aquí tiene un resumen educativo:`,
+      text: `### Orientación Médica y Evaluación de Síntomas\n\nBasado en el consenso clínico, aquí tiene un resumen educativo sobre su consulta:`,
       isEmergency: false,
       urgencyLevel: "Low",
       assessmentConfidence: "Moderate",
@@ -678,7 +703,7 @@ function generateFallbackHealthAssistant(message: string, isEmergency: boolean) 
   // Default English symptom analysis
   return {
     intent: "symptom_analysis",
-    text: `### Health Guidance & Symptom Assessment\n\nThank you for reaching out to **TruthRx AI Health Assistant** regarding: *"${message}"*.\n\nBased on clinical consensus, here is a non-diagnostic educational overview:`,
+    text: `### Health Guidance & Symptom Assessment\n\nBased on clinical evidence and evidence-based guidance, here is an educational evaluation regarding your inquiry:`,
     isEmergency: false,
     urgencyLevel: "Low",
     assessmentConfidence: "Moderate",
